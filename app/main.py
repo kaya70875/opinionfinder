@@ -1,5 +1,7 @@
 from fastapi import FastAPI
 from app.routes import transcripts as transcripts_router
+from dotenv import load_dotenv
+load_dotenv()
 
 app = FastAPI()
 
