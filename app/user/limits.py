@@ -14,12 +14,11 @@ metrics_collection = db['metrics']
 channel = 'channels_scraped'
 video = 'videos_scraped'
 
-def check_request_limit(user_id: str, videos: int):
+def check_request_limits(user_id: str, user_limits: dict[str, int]):
     """
     Checks request limits for a specific user based on current plan.
     """
 
-    user_plan = get_user_plan(user_id).lower().replace(" ", "_")
     now = datetime.now()
 
     try:
@@ -40,18 +39,9 @@ def check_request_limit(user_id: str, videos: int):
             )
         else:
             updated_metrics = metrics
-        
-        limits = USER_LIMITS.get(user_plan, USER_LIMITS["free"])
 
-        # Check if user wants to fetch much more videos for a single channel based on their plan.
-        if videos >= limits['max_videos']:
-            raise HTTPException(status_code=402, detail=f'This plan has limit for maximum videos to fetch. You can fetch maximum of {limits["max_videos"]} videos.')
-
-        if updated_metrics[channel] >= limits['max_channels'] or updated_metrics[video] >= limits['max_videos']:
+        if updated_metrics[channel] >= user_limits['max_channels'] or updated_metrics[video] >= user_limits['max_videos']:
             raise HTTPException(status_code=402, detail=f'Request limit exceed. Payment Required.')
-        
-        # Update the metrics for the user
-        metrics_collection.update_one({'_id' : ObjectId(user_id) }, {"$inc" : {channel : 1, video: videos}})
 
     except WriteError as write_err:
         logger.error(f'Error while writing the database {write_err}')
@@ -62,4 +52,15 @@ def check_request_limit(user_id: str, videos: int):
     except AttributeError as attr_err:
         logger.error(f'Error while accessing attr in reqeust limit ${attr_err}')
         raise HTTPException(status_code=400, detail=f'Error while accessing attr in request limit ${attr_err}')
+    
+def update_user_limits(user_id: str, transcripts: dict):
+    """
+    Updates user limit based on fetched transcripts end of the script.
+    """
+
+    #Calculate total videos that fetched end of the script
+    total_videos = len(transcripts)
+
+    # Update the metrics for the user
+    metrics_collection.update_one({'_id' : ObjectId(user_id) }, {"$inc" : {channel : 1, video: total_videos}})
         

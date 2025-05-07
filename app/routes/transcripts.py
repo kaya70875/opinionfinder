@@ -4,7 +4,9 @@ from fastapi.responses import StreamingResponse
 from app.utils.writes import write_as_csv, write_as_text, write_as_json
 from app.fetch import fetch_all_transcripts
 from app.youtube_v3.v3_requests import get_video_ids_from_channel
-from app.user.limits import check_request_limit
+from app.user.limits import check_request_limits, update_user_limits
+from app.user.utils import get_user_plan
+from app.user.user_limits import USER_LIMITS
 
 router = APIRouter()
 
@@ -12,7 +14,7 @@ router = APIRouter()
 async def fetch_transcripts(
         channel_name : str = Path(description="Channel name to fetch transcripts from.", min_length=1, max_length=70),
         export_type: str = Query(default="json", description="Export type for transcripts. Options: 'json', 'txt', 'csv'"),
-        limit: int = Query(default=50, description="Limit the number of transcripts to fetch.") # Adjusted to max_length for limit
+        max_results: int = Query(default=None, description="Limit the number of transcripts to fetch.")
         ):
     """
     Fetch transcripts for all videos from a channel.
@@ -21,10 +23,21 @@ async def fetch_transcripts(
         if export_type not in ["json", "txt", "csv"]:
             raise HTTPException(status_code=400, detail="Invalid export type. Options: 'json', 'txt', 'csv'")
         
+        user_id = "681b72683e6372ca59e05893"
+
+        # Set maximum allowed videos to fetch as default.
+        user_plan = get_user_plan(user_id).lower().replace(' ', '_')
+        user_limits = USER_LIMITS.get(user_plan, USER_LIMITS['free'])
+        max_allowed = int(user_limits['max_videos'])
+        if max_results is None:
+            max_results = max_allowed
+        if max_results > max_allowed:
+            raise HTTPException(status_code=403, detail=f"Limit exceeds plan allowance ({max_allowed} max for {user_plan} users).")
+
         # Check request limits for the user
-        check_request_limit("681b72683e6372ca59e05893", limit)
+        check_request_limits(user_id, user_limits=user_limits)
         
-        video_ids = await get_video_ids_from_channel(channel_name, limit=limit)
+        video_ids = await get_video_ids_from_channel(channel_name, max_results)
         if not video_ids:
             raise HTTPException(status_code=404, detail="No video IDs found for the specified channel.")
 
@@ -32,6 +45,9 @@ async def fetch_transcripts(
         transcripts = await fetch_all_transcripts(video_ids, max_workers=30)
         if not transcripts:
             raise HTTPException(status_code=404, detail="No transcripts found for the specified video IDs.")
+
+        #Update user metrics
+        update_user_limits(user_id, transcripts)
 
         if export_type == "txt":
             output = write_as_text(transcripts)

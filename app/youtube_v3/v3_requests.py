@@ -8,7 +8,7 @@ if not API_KEY:
     raise ValueError("API key not found. Please set the YOUTUBE_API_KEY environment variable.")
 
 
-async def get_video_ids_from_channel(channel_name: str, limit: int) -> list[str]:
+async def get_video_ids_from_channel(channel_name: str, max_results: int) -> list[str]:
     """
     Get all video IDs from a YouTube channel using the YouTube Data API v3.
     """
@@ -31,7 +31,7 @@ async def get_video_ids_from_channel(channel_name: str, limit: int) -> list[str]
         res = requests.get(url, params=params).json()
         uploads_playlist_id = res['items'][0]['contentDetails']['relatedPlaylists']['uploads']
 
-        return get_video_ids(uploads_playlist_id, API_KEY, limit)
+        return get_video_ids(uploads_playlist_id, API_KEY, max_results)
     except Exception as e:
         print(f"Error fetching video IDs from channel: {e}")
         return []

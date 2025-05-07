@@ -24,7 +24,7 @@ def get_channel_id(channel_name: str, api_key: str) -> str:
         return None
 
 
-def get_video_ids(uploads_playlist_id, api_key: str, limit: int) -> list[str]:
+def get_video_ids(uploads_playlist_id, api_key: str, max_results: int) -> list[str]:
     try:
         video_ids = []
         print('video_ids', video_ids)
@@ -43,7 +43,7 @@ def get_video_ids(uploads_playlist_id, api_key: str, limit: int) -> list[str]:
 
             res = requests.get(base_url, params=params).json()
             for item in res['items']:
-                if len(video_ids) >= limit: break
+                if len(video_ids) >= max_results: break
                 video_id = item['snippet']['resourceId']['videoId']
                 video_ids.append(video_id)
                 print(f"Fetched video ID: {video_id}")
