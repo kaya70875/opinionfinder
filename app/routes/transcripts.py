@@ -11,7 +11,7 @@ router = APIRouter()
 async def fetch_transcripts(
         channel_name : str = Path(description="Channel name to fetch transcripts from.", min_length=1, max_length=70),
         export_type: str = Query(default="json", description="Export type for transcripts. Options: 'json', 'txt', 'csv'"),
-        limit: int = Query(default=50, description="Limit the number of transcripts to fetch.")
+        limit: int = Query(default=50, description="Limit the number of transcripts to fetch.", min_length=1, max_length=1000) # Adjusted to max_length for limit
         ):
     """
     Fetch transcripts for all videos from a channel.
