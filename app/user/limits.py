@@ -43,6 +43,10 @@ def check_request_limit(user_id: str, videos: int):
         
         limits = USER_LIMITS.get(user_plan, USER_LIMITS["free"])
 
+        # Check if user wants to fetch much more videos for a single channel based on their plan.
+        if videos >= limits['max_videos']:
+            raise HTTPException(status_code=402, detail=f'This plan has limit for maximum videos to fetch. You can fetch maximum of {limits["max_videos"]} videos.')
+
         if updated_metrics[channel] >= limits['max_channels'] or updated_metrics[video] >= limits['max_videos']:
             raise HTTPException(status_code=402, detail=f'Request limit exceed. Payment Required.')
         
