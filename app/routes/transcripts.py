@@ -39,6 +39,7 @@ async def fetch_transcripts(
         
         channel_data = await get_all_channel_data(channel_name, max_results)
         video_ids = channel_data.video_ids
+        snippet = channel_data.metadata
         if not video_ids:
             raise HTTPException(status_code=404, detail="No video IDs found for the specified channel.")
 
@@ -51,21 +52,21 @@ async def fetch_transcripts(
         update_user_limits(user_id, transcripts)
 
         if export_type == "txt":
-            output = write_as_text(transcripts)
+            output = write_as_text(transcripts, snippet)
 
             return StreamingResponse(output, media_type="text/plain", headers={
                 "Content-Disposition": "attachment; filename=transcripts.txt"
             })
         
         elif export_type == 'csv':
-            output = write_as_csv(transcripts)
+            output = write_as_csv(transcripts, snippet)
 
             return StreamingResponse(output, media_type="text/csv", headers={
                 "Content-Disposition": "attachment; filename=transcripts.csv"
             })
         
         elif export_type == 'json':
-            output = write_as_json(transcripts)
+            output = write_as_json(transcripts, snippet)
 
             return StreamingResponse(output, media_type="application/json", headers={
                 "Content-Disposition": "attachment; filename=transcripts.json"
