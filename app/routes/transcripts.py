@@ -3,7 +3,7 @@ from fastapi import Query, Path, HTTPException
 from fastapi.responses import StreamingResponse
 from app.utils.writes import write_as_csv, write_as_text, write_as_json
 from app.fetch import fetch_all_transcripts
-from app.youtube_v3.v3_requests import get_video_ids_from_channel
+from app.youtube_v3.v3_requests import get_all_channel_data
 from app.user.limits import check_request_limits, update_user_limits
 from app.user.utils import get_user_plan
 from app.user.user_limits import USER_LIMITS
@@ -37,7 +37,8 @@ async def fetch_transcripts(
         # Check request limits for the user
         check_request_limits(user_id, user_limits=user_limits)
         
-        video_ids = await get_video_ids_from_channel(channel_name, max_results)
+        channel_data = await get_all_channel_data(channel_name, max_results)
+        video_ids = channel_data.video_ids
         if not video_ids:
             raise HTTPException(status_code=404, detail="No video IDs found for the specified channel.")
 
