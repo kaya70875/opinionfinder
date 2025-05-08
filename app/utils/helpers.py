@@ -1,15 +1,5 @@
 import requests
-from pydantic import BaseModel
-
-class Snippet(BaseModel):
-    publishedAt: str
-    channelId: str
-    title: str
-    description: str
-    
-class ChannelData(BaseModel):
-    video_ids: list[str]
-    metadata: list[Snippet]
+from app.types.youtube import ChannelData
 
 def get_channel_id(channel_name: str, api_key: str) -> str:
     """
