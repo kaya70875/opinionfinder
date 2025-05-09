@@ -2,8 +2,8 @@ from fastapi import APIRouter
 from fastapi import Query, Path, HTTPException
 from fastapi.responses import StreamingResponse
 from app.utils.writes import write_as_csv, write_as_text, write_as_json
-from app.fetch import fetch_all_transcripts
-from app.youtube_v3.v3_requests import get_all_channel_data
+from app.fetch import fetch_all_transcripts_with_metadata
+from app.youtube_v3.v3_requests import fetch_channel
 from app.user.limits import check_request_limits, update_user_limits
 from app.user.utils import get_user_plan
 from app.user.user_limits import USER_LIMITS
@@ -14,7 +14,8 @@ router = APIRouter()
 async def fetch_transcripts(
         channel_name : str = Path(description="Channel name to fetch transcripts from.", min_length=1, max_length=70),
         export_type: str = Query(default="json", description="Export type for transcripts. Options: 'json', 'txt', 'csv'"),
-        max_results: int = Query(default=None, description="Limit the number of transcripts to fetch.")
+        max_results: int = Query(default=None, description="Limit the number of transcripts to fetch."),
+        allowed_metadata: str = Query(default='title', description="Allowed metadata values. Options : 'title | description | publishedAt'")
         ):
     """
     Fetch transcripts for all videos from a channel.
@@ -37,36 +38,39 @@ async def fetch_transcripts(
         # Check request limits for the user
         check_request_limits(user_id, user_limits=user_limits)
         
-        channel_data = await get_all_channel_data(channel_name, max_results)
-        video_ids = channel_data.video_ids
-        snippet = channel_data.metadata
+        channel = await fetch_channel(channel_name, max_results)
+        video_ids = channel.video_ids
+        snippets = channel.metadata
         if not video_ids:
             raise HTTPException(status_code=404, detail="No video IDs found for the specified channel.")
 
         # Call the fetch function from fetch.py
-        transcripts = await fetch_all_transcripts(video_ids, max_workers=30)
-        if not transcripts:
-            raise HTTPException(status_code=404, detail="No transcripts found for the specified video IDs.")
+        channel_data = await fetch_all_transcripts_with_metadata(video_ids, snippets, max_workers=30)
+        if not channel_data:
+            raise HTTPException(status_code=404, detail="No channel_data found for the specified video IDs.")
 
         #Update user metrics
-        update_user_limits(user_id, transcripts)
+        update_user_limits(user_id, (data['transcript'] for data in channel_data))
+
+        # Convert metadata to a list
+        allowed_metadata_list = allowed_metadata.split(',')
 
         if export_type == "txt":
-            output = write_as_text(transcripts, snippet)
+            output = write_as_text(channel_data, allowed_metadata_list)
 
             return StreamingResponse(output, media_type="text/plain", headers={
                 "Content-Disposition": "attachment; filename=transcripts.txt"
             })
         
         elif export_type == 'csv':
-            output = write_as_csv(transcripts, snippet)
+            output = write_as_csv(channel_data, allowed_metadata_list)
 
             return StreamingResponse(output, media_type="text/csv", headers={
                 "Content-Disposition": "attachment; filename=transcripts.csv"
             })
         
         elif export_type == 'json':
-            output = write_as_json(transcripts, snippet)
+            output = write_as_json(channel_data, allowed_metadata_list)
 
             return StreamingResponse(output, media_type="application/json", headers={
                 "Content-Disposition": "attachment; filename=transcripts.json"

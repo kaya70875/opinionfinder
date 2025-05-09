@@ -1,5 +1,5 @@
 import requests
-from app.utils.helpers import get_channel_id, get_channel_data, ChannelData
+from app.utils.helpers import get_channel_id, fetch_with_playlist_id, ChannelData
 import os
 
 API_KEY = os.getenv("YOUTUBE_API_KEY")
@@ -8,7 +8,7 @@ if not API_KEY:
     raise ValueError("API key not found. Please set the YOUTUBE_API_KEY environment variable.")
 
 
-async def get_all_channel_data(channel_name: str, max_results: int) -> ChannelData:
+async def fetch_channel(channel_name: str, max_results: int) -> ChannelData:
     """
     Get all channel snippets from a YouTube channel using the YouTube Data API v3.
     """
@@ -30,8 +30,8 @@ async def get_all_channel_data(channel_name: str, max_results: int) -> ChannelDa
 
         res = requests.get(url, params=params).json()
         uploads_playlist_id = res['items'][0]['contentDetails']['relatedPlaylists']['uploads']
-
-        return get_channel_data(uploads_playlist_id, API_KEY, max_results)
+        
+        return fetch_with_playlist_id(uploads_playlist_id, API_KEY, max_results)
     except Exception as e:
         print(f"Error fetching video IDs from channel: {e}")
         return []

@@ -25,7 +25,7 @@ def get_channel_id(channel_name: str, api_key: str) -> str:
         return None
 
 
-def get_channel_data(uploads_playlist_id, api_key: str, max_results: int) -> ChannelData:
+def fetch_with_playlist_id(uploads_playlist_id, api_key: str, max_results: int) -> ChannelData:
     try:
         data = {
             'video_ids' : [],

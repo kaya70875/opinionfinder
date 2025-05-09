@@ -53,13 +53,13 @@ def check_request_limits(user_id: str, user_limits: dict[str, int]):
         logger.error(f'Error while accessing attr in reqeust limit ${attr_err}')
         raise HTTPException(status_code=400, detail=f'Error while accessing attr in request limit ${attr_err}')
     
-def update_user_limits(user_id: str, transcripts: dict):
+def update_user_limits(user_id: str, transcripts):
     """
     Updates user limit based on fetched transcripts end of the script.
     """
 
     #Calculate total videos that fetched end of the script
-    total_videos = len(transcripts)
+    total_videos = len(list(transcripts))
 
     # Update the metrics for the user
     metrics_collection.update_one({'_id' : ObjectId(user_id) }, {"$inc" : {channel : 1, video: total_videos}})
