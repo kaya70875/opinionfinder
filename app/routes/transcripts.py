@@ -50,7 +50,7 @@ async def fetch_transcripts(
             raise HTTPException(status_code=404, detail="No channel_data found for the specified video IDs.")
 
         #Update user metrics
-        update_user_limits(user_id, (data['transcript'] for data in channel_data))
+        update_user_limits(user_id, (data.transcript for data in channel_data))
 
         # Convert metadata to a list
         allowed_metadata_list = allowed_metadata.split(',')
