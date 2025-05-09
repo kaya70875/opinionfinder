@@ -2,7 +2,6 @@ import csv
 import json
 from io import StringIO
 from app.types.youtube import FetchAndMetaResponse
-from typing import List
 
 def write_as_text(channel_data: list[FetchAndMetaResponse], allowed_metadata: list) -> StringIO:
     output = StringIO()

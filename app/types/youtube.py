@@ -1,5 +1,4 @@
 from pydantic import BaseModel
-from typing import List, Dict
 
 class Snippet(BaseModel):
     title: str
@@ -13,5 +12,5 @@ class ChannelData(BaseModel):
 
 class FetchAndMetaResponse(BaseModel):
     video_id: str
-    transcript: List[Dict]
+    transcript: list[dict]
     snippet: Snippet
