@@ -35,7 +35,6 @@ def fetch_with_playlist_id(uploads_playlist_id, api_key: str, max_results: int) 
         next_page_token = None
 
         while True:
-            print(f"Fetching page with token: {next_page_token}...")
             params = {
                 'part': 'snippet',
                 'playlistId': uploads_playlist_id,

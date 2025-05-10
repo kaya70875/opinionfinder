@@ -7,6 +7,7 @@ from app.youtube_v3.v3_requests import fetch_channel
 from app.user.limits import check_request_limits, update_user_limits
 from app.user.utils import get_user_plan
 from app.user.user_limits import USER_LIMITS
+from app.utils.data_processing import clean_transcripts
 
 router = APIRouter()
 
@@ -54,6 +55,9 @@ async def fetch_transcripts(
 
         # Convert metadata to a list
         allowed_metadata_list = allowed_metadata.split(',')
+
+        #Clean transcripts for final writing format.
+        cleaned_data = clean_transcripts(channel_data)
 
         if export_type == "txt":
             output = write_as_text(channel_data, allowed_metadata_list)
