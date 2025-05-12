@@ -47,7 +47,7 @@ async def fetch_transcripts(
             raise HTTPException(status_code=404, detail="No video IDs found for the specified channel.")
 
         # Call the fetch function from fetch.py
-        channel_data = await fetch_all_transcripts_with_metadata(video_ids, snippets, max_workers=30)
+        channel_data = await fetch_all_transcripts_with_metadata(video_ids, snippets)
         if not channel_data:
             raise HTTPException(status_code=404, detail="No channel_data found for the specified video IDs.")
 
