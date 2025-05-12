@@ -8,6 +8,7 @@ from app.user.limits import check_request_limits, update_user_limits
 from app.user.utils import get_user_plan
 from app.user.user_limits import USER_LIMITS
 from app.utils.data_processing import clean_transcripts, calculate_estimated_token
+import asyncio
 
 router = APIRouter()
 
@@ -29,7 +30,8 @@ async def fetch_transcripts(
         user_id = "681b72683e6372ca59e05893"
 
         # Set maximum allowed videos to fetch as default.
-        user_plan = get_user_plan(user_id).lower().replace(' ', '_')
+        user_plan = await get_user_plan(user_id)
+        user_plan = user_plan.lower().replace(' ', '_')
         user_limits = USER_LIMITS.get(user_plan, USER_LIMITS['free'])
         max_allowed = int(user_limits['max_videos'])
         if max_results is None:
@@ -38,7 +40,7 @@ async def fetch_transcripts(
             raise HTTPException(status_code=403, detail=f"Limit exceeds plan allowance ({max_allowed} max for {user_plan} users).")
 
         # Check request limits for the user
-        check_request_limits(user_id, user_limits=user_limits)
+        await check_request_limits(user_id, user_limits=user_limits)
         
         channel = await fetch_channel(channel_name, max_results)
         video_ids = channel.video_ids
@@ -52,7 +54,7 @@ async def fetch_transcripts(
             raise HTTPException(status_code=404, detail="No channel_data found for the specified video IDs.")
 
         #Update user metrics
-        update_user_limits(user_id, (data.transcript for data in channel_data))
+        await update_user_limits(user_id, (data.transcript for data in channel_data))
 
         # Convert metadata to a list
         allowed_metadata_list = allowed_metadata.split(',')
@@ -63,26 +65,30 @@ async def fetch_transcripts(
         #Calculate estimated token
         estimated_token = calculate_estimated_token(cleaned_data)
 
-        if export_type == "txt":
-            output = write_as_text(cleaned_data, allowed_metadata_list, include_timing)
+        loop = asyncio.get_running_loop()
 
+        if export_type == "txt":
+            output = await loop.run_in_executor(
+                None, write_as_text, cleaned_data, allowed_metadata_list, include_timing
+            )
             return StreamingResponse(output, media_type="text/plain", headers={
                 "Content-Disposition": "attachment; filename=transcripts.txt",
                 "X-Estimated-Tokens": str(estimated_token)
             })
-                
-        
-        elif export_type == 'csv':
-            output = write_as_csv(cleaned_data, allowed_metadata_list, include_timing)
 
+        elif export_type == 'csv':
+            output = await loop.run_in_executor(
+                None, write_as_csv, cleaned_data, allowed_metadata_list, include_timing
+            )
             return StreamingResponse(output, media_type="text/csv", headers={
                 "Content-Disposition": "attachment; filename=transcripts.csv",
                 "X-Estimated-Tokens": str(estimated_token)
             })
-        
-        elif export_type == 'json':
-            output = write_as_json(cleaned_data, allowed_metadata_list, include_timing)
 
+        elif export_type == 'json':
+            output = await loop.run_in_executor(
+                None, write_as_json, cleaned_data, allowed_metadata_list, include_timing
+            )
             return StreamingResponse(output, media_type="application/json", headers={
                 "Content-Disposition": "attachment; filename=transcripts.json",
                 "X-Estimated-Tokens": str(estimated_token)

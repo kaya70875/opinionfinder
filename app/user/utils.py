@@ -1,13 +1,13 @@
 from app.lib.database import db
 from bson import ObjectId
 
-def get_user_plan(user_id: str) -> str:
+async def get_user_plan(user_id: str) -> str:
     """
     Retrieve user plan (free, premium, premium_plus) from the users collection.
     """
 
     try:
-        user = db['users'].find_one({"_id": ObjectId(user_id)})
+        user = await db['users'].find_one({"_id": ObjectId(user_id)})
         if user:
             return user.get("plan", "free")
         else:

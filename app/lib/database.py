@@ -1,4 +1,5 @@
-from pymongo import MongoClient, errors
+from pymongo import errors
+from motor.motor_asyncio import AsyncIOMotorClient
 import os
 from dotenv import load_dotenv
 import logging
@@ -18,7 +19,7 @@ if not mongo_uri or not mongo_db:
 
 try:
     # Connect to MongoDB
-    client = MongoClient(mongo_uri)
+    client = AsyncIOMotorClient(mongo_uri)
     db = client[mongo_db]  # Access the database
 
     print("Database connection successful")
