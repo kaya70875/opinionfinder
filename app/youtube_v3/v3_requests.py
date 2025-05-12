@@ -1,4 +1,4 @@
-import requests
+import httpx
 from app.utils.helpers import get_channel_id, fetch_with_playlist_id, ChannelData
 import os
 
@@ -14,7 +14,7 @@ async def fetch_channel(channel_name: str, max_results: int) -> ChannelData:
     """
     try:
         print(f"Fetching video IDs for channel: {channel_name}...")
-        channel_id = get_channel_id(channel_name, API_KEY)
+        channel_id = await get_channel_id(channel_name, API_KEY)
         print(f"Channel ID: {channel_id}")
         if not channel_id:
             raise ValueError(f"Channel '{channel_name}' not found.")
@@ -28,10 +28,12 @@ async def fetch_channel(channel_name: str, max_results: int) -> ChannelData:
             'key': API_KEY
         }
 
-        res = requests.get(url, params=params).json()
-        uploads_playlist_id = res['items'][0]['contentDetails']['relatedPlaylists']['uploads']
-        
-        return fetch_with_playlist_id(uploads_playlist_id, API_KEY, max_results)
+        async with httpx.AsyncClient() as client:
+            response = await client.get(url, params=params)
+            res = response.json()
+            uploads_playlist_id = res['items'][0]['contentDetails']['relatedPlaylists']['uploads']
+            
+            return await fetch_with_playlist_id(uploads_playlist_id, API_KEY, max_results)
     except Exception as e:
         print(f"Error fetching video IDs from channel: {e}")
         return []
