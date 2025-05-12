@@ -16,7 +16,8 @@ async def fetch_transcripts(
         channel_name : str = Path(description="Channel name to fetch transcripts from.", min_length=1, max_length=70),
         export_type: str = Query(default="json", description="Export type for transcripts. Options: 'json', 'txt', 'csv'"),
         max_results: int = Query(default=None, description="Limit the number of transcripts to fetch."),
-        allowed_metadata: str = Query(default='title', description="Allowed metadata values. Options : 'title | description | publishedAt'")
+        allowed_metadata: str = Query(default='title', description="Allowed metadata values. Options : 'title | description | publishedAt'"),
+        include_timing: bool = Query(default=True, description="Whether the include start and duration parameters or not.")
         ):
     """
     Fetch transcripts for all videos from a channel.
@@ -63,7 +64,7 @@ async def fetch_transcripts(
         estimated_token = calculate_estimated_token(cleaned_data)
 
         if export_type == "txt":
-            output = write_as_text(cleaned_data, allowed_metadata_list)
+            output = write_as_text(cleaned_data, allowed_metadata_list, include_timing)
 
             return StreamingResponse(output, media_type="text/plain", headers={
                 "Content-Disposition": "attachment; filename=transcripts.txt",
@@ -72,7 +73,7 @@ async def fetch_transcripts(
                 
         
         elif export_type == 'csv':
-            output = write_as_csv(cleaned_data, allowed_metadata_list)
+            output = write_as_csv(cleaned_data, allowed_metadata_list, include_timing)
 
             return StreamingResponse(output, media_type="text/csv", headers={
                 "Content-Disposition": "attachment; filename=transcripts.csv",
@@ -80,7 +81,7 @@ async def fetch_transcripts(
             })
         
         elif export_type == 'json':
-            output = write_as_json(cleaned_data, allowed_metadata_list)
+            output = write_as_json(cleaned_data, allowed_metadata_list, include_timing)
 
             return StreamingResponse(output, media_type="application/json", headers={
                 "Content-Disposition": "attachment; filename=transcripts.json",

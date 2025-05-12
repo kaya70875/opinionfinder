@@ -3,7 +3,7 @@ import json
 from io import StringIO
 from app.types.youtube import FetchAndMetaResponse
 
-def write_as_text(channel_data: list[FetchAndMetaResponse], allowed_metadata: list) -> StringIO:
+def write_as_text(channel_data: list[FetchAndMetaResponse], allowed_metadata: list, timing: bool) -> StringIO:
     output = StringIO()
     for data in channel_data:
 
@@ -12,16 +12,20 @@ def write_as_text(channel_data: list[FetchAndMetaResponse], allowed_metadata: li
         for metadata in allowed_metadata:
             output.write(f'{metadata} --> {getattr(data.snippet, metadata)} \n')
         for entry in data.transcript:
-            output.write(f"{entry['start']} --> {entry['start'] + entry['duration']}\n")
+            output.write(f"{entry['start']} --> {entry['start'] + entry['duration']}\n") if timing else None
             output.write(f"{entry['text']}\n")
         output.write("\n")
     output.seek(0)
     return output
 
-def write_as_csv(channel_data: list[FetchAndMetaResponse], allowed_metadata: list) -> StringIO:
+def write_as_csv(channel_data: list[FetchAndMetaResponse], allowed_metadata: list, timing: bool) -> StringIO:
     
     output = StringIO()
-    fieldnames = ['index', 'video_id', 'start', 'duration', *allowed_metadata, 'text']
+
+    t = ['start', 'duration']
+
+    fieldnames = ['index', 'video_id', *allowed_metadata, 'text']
+    fieldnames += t if timing else []
     writer = csv.DictWriter(output, fieldnames=fieldnames)
     writer.writeheader()
 
@@ -33,8 +37,7 @@ def write_as_csv(channel_data: list[FetchAndMetaResponse], allowed_metadata: lis
                 'index': i,
                 'video_id': data.video_id,
                 **{field: getattr(data.snippet, field) for field in allowed_metadata},
-                'start': entry['start'],
-                'duration': entry['duration'],
+                **({"start": entry["start"], "duration": entry["duration"]} if timing else {}),
                 'text': entry['text']
             }
             writer.writerow(row)
@@ -43,7 +46,7 @@ def write_as_csv(channel_data: list[FetchAndMetaResponse], allowed_metadata: lis
     return output
 
 
-def write_as_json(channel_data: list[FetchAndMetaResponse], allowed_metadata: list) -> StringIO:
+def write_as_json(channel_data: list[FetchAndMetaResponse], allowed_metadata: list, timing: bool) -> StringIO:
     output = StringIO()
     export_data = []
 
@@ -52,9 +55,8 @@ def write_as_json(channel_data: list[FetchAndMetaResponse], allowed_metadata: li
             "video_id": data.video_id,
             **{field: getattr(data.snippet, field) for field in allowed_metadata},
             "transcript": [
-                {
-                    "start": entry["start"],
-                    "duration": entry["duration"],
+                {   
+                    **({"start": entry["start"], "duration": entry["duration"]} if timing else {}),
                     "text": entry["text"]
                 }
                 for entry in data.transcript
