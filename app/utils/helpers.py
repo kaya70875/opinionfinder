@@ -1,12 +1,18 @@
 import httpx
 from app.types.youtube import ChannelData
+import logging
+from app.lib.timeout import TIMEOUT
+
+logger = logging.getLogger(__name__)
+
+import httpx
+import traceback
 
 async def get_channel_id(channel_name: str, api_key: str) -> str:
-    """
-    Get the channel ID from the channel name using YouTube Data API v3.
-    """
     try:
-        async with httpx.AsyncClient() as client:
+        print(f"🌐 Preparing request for @{channel_name}")
+        async with httpx.AsyncClient(timeout=TIMEOUT) as client:
+            print(f"📤 Sending request...")
             response = await client.get(
                 'https://www.googleapis.com/youtube/v3/channels',
                 params={
@@ -15,15 +21,29 @@ async def get_channel_id(channel_name: str, api_key: str) -> str:
                     'key': api_key
                 }
             )
+            print(f"📥 Response status: {response.status_code}")
+            response.raise_for_status()
 
+            print(f"📄 Raw response: {response.text}")
             res = response.json()
-            if 'items' in res and len(res['items']) > 0:
+
+            if 'items' in res and res['items']:
                 return res['items'][0]['id']
             else:
                 raise ValueError(f"Channel '{channel_name}' not found.")
+    
+    except httpx.ConnectTimeout as e:
+        print("❌ Connect timeout:", e)
+    except httpx.ReadTimeout as e:
+        print("❌ Read timeout:", e)
+    except httpx.RequestError as e:
+        print("❌ Request error:", e)
+    except httpx.HTTPStatusError as e:
+        print(f"❌ HTTP status error: {e.response.status_code} - {e.response.text}")
     except Exception as e:
-        print(f"Error fetching channel ID: {e}")
-        return None
+        print("❌ Unexpected error:", e)
+        traceback.print_exc()
+
 
 
 async def fetch_with_playlist_id(uploads_playlist_id, api_key: str, max_results: int) -> ChannelData:
@@ -44,7 +64,7 @@ async def fetch_with_playlist_id(uploads_playlist_id, api_key: str, max_results:
                 'key': api_key
             }
 
-            async with httpx.AsyncClient() as client:
+            async with httpx.AsyncClient(timeout=TIMEOUT) as client:
                 response = await client.get(base_url, params=params)
                 res = response.json()
                 for item in res['items']:
@@ -59,7 +79,9 @@ async def fetch_with_playlist_id(uploads_playlist_id, api_key: str, max_results:
                 next_page_token = res.get('nextPageToken')
                 if not next_page_token:
                     break
+            print('data', data)
             return ChannelData(**data)
-    except Exception as e:
-        print('Error fetching video IDs:', e)
+    except AttributeError as attr_err:
+        logger.error('Error fetching vide IDs:',attr_err)
+        print('Error fetching video IDs:', attr_err)
         return []
