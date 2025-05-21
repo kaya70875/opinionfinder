@@ -1,3 +1,3 @@
 import httpx
-
-TIMEOUT = httpx.Timeout(20, connect=20)
+#40 - 30
+TIMEOUT = httpx.Timeout(30)
