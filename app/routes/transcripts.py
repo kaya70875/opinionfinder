@@ -13,10 +13,49 @@ import logging
 from arq import create_pool
 from arq.connections import RedisSettings
 import io
+from app.lib.rd import r
+import json
+from app.types.youtube import FetchAndMetaResponse
 
 logger = logging.getLogger(__name__)
 
 router = APIRouter()
+
+@router.get("/transcripts/download")
+async def download():
+    
+    export_type = str(r.get("export_type"))
+    allowed_metadata_list = json.loads(r.get("allowed_metadata_list"))
+    include_timing = bool(r.get("include_timing"))
+    cached_cleaned_data = json.loads(r.get("transcripts"))
+
+    cleaned_data: list[FetchAndMetaResponse] = [FetchAndMetaResponse.model_validate_json(item) for item in cached_cleaned_data]
+
+    loop = asyncio.get_running_loop()
+
+    if export_type == "txt":
+        output = await loop.run_in_executor(
+            None, write_as_text, cleaned_data, allowed_metadata_list, include_timing
+        )
+        return StreamingResponse(output, media_type="text/txt", headers={
+            "Content-Disposition": "attachment; filename=transcripts.txt",
+        })
+
+    elif export_type == 'csv':
+        output = await loop.run_in_executor(
+            None, write_as_csv, cleaned_data, allowed_metadata_list, include_timing
+        )
+        return StreamingResponse(output, media_type="text/csv", headers={
+            "Content-Disposition": "attachment; filename=transcripts.csv",
+        })
+
+    elif export_type == 'json':
+        output = await loop.run_in_executor(
+            None, write_as_json, cleaned_data, allowed_metadata_list, include_timing
+        )
+        return StreamingResponse(output, media_type="application/json", headers={
+            "Content-Disposition": "attachment; filename=transcripts.json",
+        })
 
 @router.get("/transcripts/{channel_name}")
 async def fetch_transcripts(
@@ -74,34 +113,16 @@ async def fetch_transcripts(
     #Calculate estimated token
     estimated_token = calculate_estimated_token(cleaned_data)
 
-    loop = asyncio.get_running_loop()
+    r.set("transcripts", json.dumps([data.model_dump_json() for data in cleaned_data]))
+    r.set("export_type", export_type)
+    r.set("allowed_metadata_list", json.dumps(allowed_metadata_list))
+    r.set("include_timing", str(include_timing))
 
-    if export_type == "txt":
-        output = await loop.run_in_executor(
-            None, write_as_text, cleaned_data, allowed_metadata_list, include_timing
-        )
-        return StreamingResponse(output, media_type="text/plain", headers={
-            "Content-Disposition": "attachment; filename=transcripts.txt",
-            "X-Estimated-Tokens": str(estimated_token)
-        })
-
-    elif export_type == 'csv':
-        output = await loop.run_in_executor(
-            None, write_as_csv, cleaned_data, allowed_metadata_list, include_timing
-        )
-        return StreamingResponse(output, media_type="text/csv", headers={
-            "Content-Disposition": "attachment; filename=transcripts.csv",
-            "X-Estimated-Tokens": str(estimated_token)
-        })
-
-    elif export_type == 'json':
-        output = await loop.run_in_executor(
-            None, write_as_json, cleaned_data, allowed_metadata_list, include_timing
-        )
-        return StreamingResponse(output, media_type="application/json", headers={
-            "Content-Disposition": "attachment; filename=transcripts.json",
-            "X-Estimated-Tokens": str(estimated_token)
-        })
+    return {
+        "data" : cleaned_data,
+        "token": estimated_token
+    }
+    
 
 @router.get("/transcripts/background/{channel_name}")
 async def start_background_fetching_job(
