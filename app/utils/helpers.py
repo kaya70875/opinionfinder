@@ -4,6 +4,7 @@ import logging
 from app.lib.timeout import TIMEOUT
 from tenacity import retry, wait_fixed, stop_after_attempt, retry_if_exception_type
 import time
+from fastapi import HTTPException
 
 logger = logging.getLogger(__name__)
 logging.basicConfig()
@@ -34,9 +35,7 @@ async def get_channel_id(channel_name: str, api_key: str) -> str:
             print(f"Took {end - start:.2f} seconds to get channel id")
             return res['items'][0]['id']
         else:
-            raise ValueError(f"Channel '{channel_name}' not found.")
-
-
+            raise HTTPException(status_code=404, detail=f"Channel '{channel_name}' not found.")
 
 async def fetch_with_playlist_id(uploads_playlist_id, api_key: str, max_results: int) -> ChannelData:
     try:
