@@ -23,7 +23,7 @@ async def extract_id_from_email(token: str):
         response = res.json()
         email = response['email']
         
-        currentUser = db['users'].find_one({'email': email})
+        currentUser = await db['users'].find_one({'email': email})
 
         if not currentUser:
             raise HTTPException(status_code=404, detail="User not found in DB")

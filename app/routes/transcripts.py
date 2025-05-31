@@ -1,4 +1,4 @@
-from fastapi import APIRouter
+from fastapi import APIRouter, Depends
 from fastapi import Query, Path, HTTPException
 from fastapi.responses import StreamingResponse, JSONResponse
 from app.utils.writes import write_as_csv, write_as_text, write_as_json
@@ -8,8 +8,10 @@ from app.user.limits import check_request_limits, update_user_limits
 from app.user.utils import get_user_plan
 from app.user.user_limits import USER_LIMITS
 from app.utils.data_processing import clean_transcripts, calculate_estimated_token
+from app.user.extract_jwt_token import get_user_id
 import asyncio
 import logging
+from typing import Annotated
 from arq import create_pool
 from arq.connections import RedisSettings
 import io
@@ -59,6 +61,7 @@ async def download():
 
 @router.get("/transcripts/{channel_name}")
 async def fetch_transcripts(
+        user_id: Annotated[str, Depends(get_user_id)],
         channel_name : str = Path(description="Channel name to fetch transcripts from.", min_length=1, max_length=70),
         export_type: str = Query(default="json", description="Export type for transcripts. Options: 'json', 'txt', 'csv'"),
         max_results: int = Query(default=None, description="Limit the number of transcripts to fetch."),
@@ -71,8 +74,6 @@ async def fetch_transcripts(
     if export_type not in ["json", "txt", "csv"]:
         raise HTTPException(status_code=400, detail="Invalid export type. Options: 'json', 'txt', 'csv'")
     
-    user_id = "681b72683e6372ca59e05893"
-
     # Set maximum allowed videos to fetch as default.
     user_plan = await get_user_plan(user_id)
     user_plan = user_plan.lower().replace(' ', '_')
