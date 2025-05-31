@@ -24,55 +24,60 @@ logger = logging.getLogger(__name__)
 router = APIRouter()
 
 @router.get("/transcripts/download")
-async def download():
-    
-    export_type = str(r.get("export_type"))
-    allowed_metadata_list = json.loads(r.get("allowed_metadata_list"))
-    include_timing = bool(r.get("include_timing"))
-    cached_cleaned_data = json.loads(r.get("transcripts"))
+async def download(
+        export_type: str = Query(default="json", description="Export type for transcripts. Options: 'json', 'txt', 'csv'"),
+        allowed_metadata: str = Query(default='title', description="Allowed metadata values. Options : 'title | description | publishedAt'"),
+        include_timing: bool = Query(default=True, description="Whether the include start and duration parameters or not.")
+):
+    try:
+        if export_type not in ["json", "txt", "csv"]:
+            raise HTTPException(status_code=400, detail="Invalid export type. Options: 'json', 'txt', 'csv'")
 
-    cleaned_data: list[FetchAndMetaResponse] = [FetchAndMetaResponse.model_validate_json(item) for item in cached_cleaned_data]
+        # Get cached transcripts from redis
+        cached_cleaned_data = json.loads(r.get("transcripts"))
+        
+        # Convert metadata into a list.
+        metadata = allowed_metadata.split(",")
 
-    loop = asyncio.get_running_loop()
+        cleaned_data: list[FetchAndMetaResponse] = [FetchAndMetaResponse.model_validate(item) for item in cached_cleaned_data]
 
-    if export_type == "txt":
-        output = await loop.run_in_executor(
-            None, write_as_text, cleaned_data, allowed_metadata_list, include_timing
-        )
-        return StreamingResponse(output, media_type="text/txt", headers={
-            "Content-Disposition": "attachment; filename=transcripts.txt",
-        })
+        loop = asyncio.get_running_loop()
 
-    elif export_type == 'csv':
-        output = await loop.run_in_executor(
-            None, write_as_csv, cleaned_data, allowed_metadata_list, include_timing
-        )
-        return StreamingResponse(output, media_type="text/csv", headers={
-            "Content-Disposition": "attachment; filename=transcripts.csv",
-        })
+        if export_type == "txt":
+            output = await loop.run_in_executor(
+                None, write_as_text, cleaned_data, metadata, include_timing
+            )
+            return StreamingResponse(output, media_type="text/txt", headers={
+                "Content-Disposition": "attachment; filename=transcripts.txt",
+            })
 
-    elif export_type == 'json':
-        output = await loop.run_in_executor(
-            None, write_as_json, cleaned_data, allowed_metadata_list, include_timing
-        )
-        return StreamingResponse(output, media_type="application/json", headers={
-            "Content-Disposition": "attachment; filename=transcripts.json",
-        })
+        elif export_type == 'csv':
+            output = await loop.run_in_executor(
+                None, write_as_csv, cleaned_data, metadata, include_timing
+            )
+            return StreamingResponse(output, media_type="text/csv", headers={
+                "Content-Disposition": "attachment; filename=transcripts.csv",
+            })
+
+        elif export_type == 'json':
+            output = await loop.run_in_executor(
+                None, write_as_json, cleaned_data, metadata, include_timing
+            )
+            return StreamingResponse(output, media_type="application/json", headers={
+                "Content-Disposition": "attachment; filename=transcripts.json",
+            })
+    except Exception as e:
+        raise HTTPException(status_code=500, detail=f'error: {e}')
 
 @router.get("/transcripts/{channel_name}")
 async def fetch_transcripts(
         user_id: Annotated[str, Depends(get_user_id)],
         channel_name : str = Path(description="Channel name to fetch transcripts from.", min_length=1, max_length=70),
-        export_type: str = Query(default="json", description="Export type for transcripts. Options: 'json', 'txt', 'csv'"),
-        max_results: int = Query(default=None, description="Limit the number of transcripts to fetch."),
-        allowed_metadata: str = Query(default='title', description="Allowed metadata values. Options : 'title | description | publishedAt'"),
-        include_timing: bool = Query(default=True, description="Whether the include start and duration parameters or not.")
+        max_results: int = Query(default=None, description="Limit the number of transcripts to fetch.")
         ):
     """
     Fetch transcripts for all videos from a channel.
     """
-    if export_type not in ["json", "txt", "csv"]:
-        raise HTTPException(status_code=400, detail="Invalid export type. Options: 'json', 'txt', 'csv'")
     
     # Set maximum allowed videos to fetch as default.
     user_plan = await get_user_plan(user_id)
@@ -105,19 +110,12 @@ async def fetch_transcripts(
     #Update user metrics
     await update_user_limits(user_id, (data.transcript for data in channel_data))
 
-    # Convert metadata to a list
-    allowed_metadata_list = allowed_metadata.split(',')
-
     #Clean transcripts for final writing format.
     cleaned_data = clean_transcripts(channel_data)
 
     #Calculate estimated token
     estimated_token = calculate_estimated_token(cleaned_data)
-
-    r.set("transcripts", json.dumps([data.model_dump_json() for data in cleaned_data]))
-    r.set("export_type", export_type)
-    r.set("allowed_metadata_list", json.dumps(allowed_metadata_list))
-    r.set("include_timing", str(include_timing))
+    r.set("transcripts", json.dumps([data.model_dump() for data in cleaned_data]))
 
     return {
         "data" : cleaned_data,
