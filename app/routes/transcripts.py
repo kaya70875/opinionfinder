@@ -1,6 +1,7 @@
 from fastapi import APIRouter, Depends
 from fastapi import Query, Path, HTTPException
-from fastapi.responses import StreamingResponse, JSONResponse
+from fastapi.responses import StreamingResponse
+from arq.jobs import JobStatus
 from app.utils.writes import write_as_csv, write_as_text, write_as_json
 from app.fetch import fetch_all_transcripts_with_metadata
 from app.youtube_v3.v3_requests import fetch_channel
@@ -14,8 +15,8 @@ import logging
 from typing import Annotated
 from arq import create_pool
 from arq.connections import RedisSettings
-import io
 from app.lib.rd import r
+from arq.jobs import Job
 import json
 from app.types.youtube import FetchAndMetaResponse
 
@@ -126,10 +127,7 @@ async def fetch_transcripts(
 @router.get("/transcripts/background/{channel_name}")
 async def start_background_fetching_job(
     channel_name: str,
-    export_type: str = Query("json"),
     max_results: int = Query(None),
-    allowed_metadata: str = Query("title"),
-    include_timing: bool = Query(True)
 ):
     user_id = "681b72683e6372ca59e05893"
     redis = await create_pool(RedisSettings())
@@ -137,19 +135,22 @@ async def start_background_fetching_job(
     job = await redis.enqueue_job(
         "fetch_transcripts_task",
         channel_name,
-        export_type,
         max_results,
-        allowed_metadata.split(","),
-        include_timing,
-        user_id
+        user_id,
     )
 
-    result = await job.result()  # or poll periodically
+    return {"job_id": job.job_id}
 
-    if "error" in result:
-        return JSONResponse(status_code=400, content={"detail": result["error"]})
+@router.get("/job-results/{job_id}")
+async def get_job_results(job_id: str):
+    redis = await create_pool()  # make sure you're using the right pool here
+    job = Job(job_id=job_id, redis=redis)
 
-    return StreamingResponse(io.BytesIO(result["data"].encode()), media_type=result["type"], headers={
-        "Content-Disposition": f"attachment; filename=transcripts.{export_type}",
-        "X-Estimated-Tokens": str(result["tokens"])
-    })
+    status = await job.status()
+
+    if status == JobStatus.in_progress:
+        return {"status": "in_progress"}
+
+    result = await job.result(timeout=0)
+
+    return {"status": "done", "results": result}
