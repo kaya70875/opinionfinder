@@ -19,6 +19,7 @@ from app.lib.rd import r
 from arq.jobs import Job
 import json
 from app.types.youtube import FetchAndMetaResponse
+from app.utils.jobs import save_job
 
 logger = logging.getLogger(__name__)
 
@@ -126,10 +127,10 @@ async def fetch_transcripts(
 
 @router.get("/transcripts/background/{channel_name}")
 async def start_background_fetching_job(
+    user_id: Annotated[str, Depends(get_user_id)],
     channel_name: str,
     max_results: int = Query(None),
 ):
-    user_id = "681b72683e6372ca59e05893"
     redis = await create_pool(RedisSettings())
 
     job = await redis.enqueue_job(
@@ -139,6 +140,8 @@ async def start_background_fetching_job(
         user_id,
     )
 
+    #First save job informations to database
+    await save_job(user_id, channel_name, job.job_id, max_results)
     return {"job_id": job.job_id}
 
 @router.get("/job-results/{job_id}")
