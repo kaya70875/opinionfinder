@@ -48,4 +48,4 @@ async def fetch_transcripts_task(ctx:str, channel_name: str, max_results: int, u
 
 class WorkerSettings:
     functions = [fetch_transcripts_task]
-    keep_result = 86400
+    keep_result = 3000
