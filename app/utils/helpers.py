@@ -78,3 +78,10 @@ async def fetch_with_playlist_id(uploads_playlist_id, api_key: str, max_results:
         logger.error('Error fetching vide IDs:',attr_err)
         print('Error fetching video IDs:', attr_err)
         return []
+
+def serialize_mongo_doc(doc: dict):
+    return {
+        **doc,
+        "_id": str(doc["_id"]),
+        "userId": str(doc["userId"]),
+    }

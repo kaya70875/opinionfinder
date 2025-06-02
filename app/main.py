@@ -1,5 +1,6 @@
 from fastapi import FastAPI
 from app.routes.transcripts import router as transcripts_router
+from app.routes.jobs import router as jobs_router
 from dotenv import load_dotenv
 from fastapi.middleware.cors import CORSMiddleware
 load_dotenv()
@@ -19,6 +20,7 @@ async def root():
     return {"message": "Welcome to the YouTube Transcript API!"}
 
 app.include_router(transcripts_router, prefix="/api", tags=["transcripts"])
+app.include_router(jobs_router, prefix="/api", tags=["jobs"])
 
 if __name__ == "__main__":
     import uvicorn
