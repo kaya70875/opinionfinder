@@ -140,8 +140,12 @@ async def start_background_fetching_job(
         user_id,
     )
 
-    #First save job informations to database
-    await save_job(user_id, channel_name, job.job_id, max_results)
+    #Convert job.result into FetchAndMetaResponse
+    job_results = await job.result()
+    results: list[FetchAndMetaResponse] = [FetchAndMetaResponse.model_validate(result) for result in job_results.get("data")]
+
+    # Save job informations to database 
+    await save_job(user_id, channel_name, job.job_id, max_results, results)
     return {"job_id": job.job_id}
 
 @router.get("/job-results/{job_id}")
@@ -150,10 +154,14 @@ async def get_job_results(job_id: str):
     job = Job(job_id=job_id, redis=redis)
 
     status = await job.status()
+    
+    match status:
+        case JobStatus.in_progress:
+            return {"status": "in_progress"}
+        case JobStatus.queued:
+            return {"status": "queued"}
+        case JobStatus.not_found:
+            return {"status": "not_found"}
 
-    if status == JobStatus.in_progress:
-        return {"status": "in_progress"}
 
-    result = await job.result(timeout=0)
-
-    return {"status": "done", "results": result}
+    return {"status": "done"}
