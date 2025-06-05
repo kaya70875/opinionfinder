@@ -13,7 +13,6 @@ class Jobs(BaseModel):
     jobId: str
     channelName: str
     totalFetched: int
-    results: List[FetchAndMetaResponse]
 
 class JobResults(BaseModel):
     data: List[FetchAndMetaResponse]
@@ -28,7 +27,7 @@ async def get_jobs(user_id: str) -> list:
         if not user_id:
             raise HTTPException(status_code=403, detail='User id is required.')
 
-        cursor = collection.find({"userId": ObjectId(user_id)})
+        cursor = collection.find({"userId": ObjectId(user_id)}, {"results" : 0})
         results = await cursor.to_list(length=None) # Get list of all jobs for current user.
 
         if not results:
@@ -45,9 +44,8 @@ async def get_job(job_id: str):
         if not job_id:
             raise HTTPException(status_code=403, detail='Job id is required.')
 
-        job = await collection.find_one({"jobId": job_id}) # This will raise an error check what is it.
+        job = await collection.find_one({"jobId": job_id}, {"results": 1}) # This will raise an error check what is it.
         data = job.get("results")
-        print('results from job route : ', data)
 
         if not data:
             raise HTTPException(status_code=404, detail='Not found any results or document for current job.')
