@@ -1,7 +1,6 @@
 from fastapi import APIRouter, Depends
 from fastapi import Query, Path, HTTPException
 from fastapi.responses import StreamingResponse
-from arq.jobs import JobStatus
 from app.utils.writes import write_as_csv, write_as_text, write_as_json
 from app.fetch import fetch_all_transcripts_with_metadata
 from app.youtube_v3.v3_requests import fetch_channel
@@ -10,16 +9,14 @@ from app.user.utils import get_user_plan
 from app.user.user_limits import USER_LIMITS
 from app.utils.data_processing import clean_transcripts, calculate_estimated_token
 from app.user.extract_jwt_token import get_user_id
-import asyncio
-import logging
 from typing import Annotated
 from arq import create_pool
 from arq.connections import RedisSettings
-from app.lib.rd import r
-from arq.jobs import Job
-import json
 from app.types.youtube import FetchAndMetaResponse
-from app.utils.jobs import save_job
+from app.lib.rd import r
+import asyncio
+import logging
+import json
 
 logger = logging.getLogger(__name__)
 
@@ -140,28 +137,7 @@ async def start_background_fetching_job(
         user_id,
     )
 
-    #Convert job.result into FetchAndMetaResponse
-    job_results = await job.result()
-    results: list[FetchAndMetaResponse] = [FetchAndMetaResponse.model_validate(result) for result in job_results.get("data")]
+    r.set('channel_name', channel_name)
+    r.set('max_results', max_results)
 
-    # Save job informations to database 
-    await save_job(user_id, channel_name, job.job_id, max_results, results)
     return {"job_id": job.job_id}
-
-@router.get("/job-results/{job_id}")
-async def get_job_results(job_id: str):
-    redis = await create_pool()  # make sure you're using the right pool here
-    job = Job(job_id=job_id, redis=redis)
-
-    status = await job.status()
-    
-    match status:
-        case JobStatus.in_progress:
-            return {"status": "in_progress"}
-        case JobStatus.queued:
-            return {"status": "queued"}
-        case JobStatus.not_found:
-            return {"status": "not_found"}
-
-
-    return {"status": "done"}
