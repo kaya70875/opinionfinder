@@ -2,10 +2,13 @@ from fastapi.routing import APIRouter
 from fastapi import HTTPException
 from app.lib.database import db
 from bson import ObjectId
+from bson.binary import Binary
 from pydantic import BaseModel
 from app.utils.helpers import serialize_mongo_doc
 from typing import List
 from app.types.youtube import FetchAndMetaResponse
+from app.utils.data_processing import decompress_job
+import time
 
 class Jobs(BaseModel):
     _id: str
@@ -44,8 +47,13 @@ async def get_job(job_id: str):
         if not job_id:
             raise HTTPException(status_code=403, detail='Job id is required.')
 
-        job = await collection.find_one({"jobId": job_id}, {"results": 1}) # This will raise an error check what is it.
-        data = job.get("results")
+        start = time.perf_counter()
+        doc = await collection.find_one({"jobId": job_id}, {"results": 1}) # This will raise an error check what is it.
+
+        # Decompress data
+        data = decompress_job(doc)
+        end = time.perf_counter()
+        print(f'Took {end - start} seconds to get results from db.')
 
         if not data:
             raise HTTPException(status_code=404, detail='Not found any results or document for current job.')

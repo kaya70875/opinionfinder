@@ -1,5 +1,7 @@
 from app.types.youtube import FetchAndMetaResponse
 import re
+import gzip
+import json
 
 def clean_transcripts(channel_data: list[FetchAndMetaResponse]) -> list[FetchAndMetaResponse]:
     """
@@ -41,3 +43,15 @@ def calculate_estimated_token(channel_data: list[FetchAndMetaResponse]) -> int:
         total += len(snippet.publishedAt)
     
     return total
+
+def decompress_job(doc) -> list:
+    """
+    Decompress gzip and return list of JSON data.
+    @Parameters:
+        doc: MongoDB document
+    """
+    results_compressed: bytes = doc['results']
+    decompressed = gzip.decompress(results_compressed)
+    data = json.loads(decompressed.decode())
+
+    return data
