@@ -69,15 +69,18 @@ async def get_job_status(job_id: str, user_id: Annotated[str, Depends(get_user_i
             return {"status": "not_found"}
         case JobStatus.complete:
             # Get necessarry fields from redis
-            channel_name = r.get('channel_name')
-            max_results = int(r.get('max_results'))
+            queries = r.hgetall(f'query:{job_id}')
 
             # Get job results
             job_results = await job.result()
             results: list[FetchAndMetaResponse] = [FetchAndMetaResponse.model_validate(result) for result in job_results.get("data")]
 
             # Save job informations to database 
-            save_job_to_redis(user_id, job.job_id, channel_name, max_results, results)
+            save_job_to_redis(user_id, job.job_id, queries['channel_name'], queries['max_results'], results)
+
+            # Set transcript results to redis for getting in download route without fetching the results again.
+            r.set(f'transcript:{job_id}', json.dumps([result.model_dump() for result in results]))
+            r.expire(f'transcript:{job_id}', 60 * 60 * 2)
 
             return {"status" : "done"}
 

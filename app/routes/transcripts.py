@@ -22,8 +22,9 @@ logger = logging.getLogger(__name__)
 
 router = APIRouter()
 
-@router.get("/transcripts/download")
+@router.get("/transcripts/download/{job_id}")
 async def download(
+        job_id: str,
         export_type: str = Query(default="json", description="Export type for transcripts. Options: 'json', 'txt', 'csv'"),
         allowed_metadata: str = Query(default='title', description="Allowed metadata values. Options : 'title | description | publishedAt'"),
         include_timing: bool = Query(default=True, description="Whether the include start and duration parameters or not.")
@@ -33,7 +34,7 @@ async def download(
             raise HTTPException(status_code=400, detail="Invalid export type. Options: 'json', 'txt', 'csv'")
 
         # Get cached transcripts from redis
-        cached_cleaned_data = json.loads(r.get("transcripts"))
+        cached_cleaned_data = json.loads(r.get(f'transcript:{job_id}'))
         
         # Convert metadata into a list.
         metadata = allowed_metadata.split(",")
@@ -66,6 +67,7 @@ async def download(
                 "Content-Disposition": "attachment; filename=transcripts.json",
             })
     except Exception as e:
+        logger.error('Error while downloading file', e)
         raise HTTPException(status_code=500, detail=f'error: {e}')
 
 @router.get("/transcripts/{channel_name}")
@@ -137,7 +139,15 @@ async def start_background_fetching_job(
         user_id,
     )
 
-    r.set('channel_name', channel_name)
-    r.set('max_results', max_results)
+    # Get job id
+    job_id = job.job_id
 
-    return {"job_id": job.job_id}
+    # Set query for jobs route
+    r.hset(f'query:{job_id}', mapping={
+        "channel_name": channel_name,
+        "max_results": max_results
+    })
+
+    r.expire(f'query:{job_id}', 60 * 60 * 2) # 2 hours of expiry time
+
+    return {"job_id": job_id}
