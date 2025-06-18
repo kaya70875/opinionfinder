@@ -54,7 +54,8 @@ async def fetch_with_playlist_id(uploads_playlist_id, api_key: str, max_results:
                     'playlistId': uploads_playlist_id,
                     'maxResults': 50,
                     'pageToken': next_page_token,
-                    'key': api_key
+                    'key': api_key,
+                    'fields': 'items(snippet(title,description,publishedAt,channelId,thumbnails,resourceId/videoId)),nextPageToken'
                 }
 
                 response = await client.get(base_url, params=params)
