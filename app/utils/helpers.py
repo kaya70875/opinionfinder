@@ -47,16 +47,16 @@ async def fetch_with_playlist_id(uploads_playlist_id, api_key: str, max_results:
         base_url = 'https://www.googleapis.com/youtube/v3/playlistItems'
         next_page_token = None
 
-        while True:
-            params = {
-                'part': 'snippet',
-                'playlistId': uploads_playlist_id,
-                'maxResults': 50,
-                'pageToken': next_page_token,
-                'key': api_key
-            }
+        async with httpx.AsyncClient(timeout=TIMEOUT) as client:
+            while True:
+                params = {
+                    'part': 'snippet',
+                    'playlistId': uploads_playlist_id,
+                    'maxResults': 50,
+                    'pageToken': next_page_token,
+                    'key': api_key
+                }
 
-            async with httpx.AsyncClient(timeout=TIMEOUT) as client:
                 response = await client.get(base_url, params=params)
                 res = response.json()
                 for item in res['items']:
