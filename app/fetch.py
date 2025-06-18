@@ -1,20 +1,14 @@
-import asyncio
 from concurrent.futures import ThreadPoolExecutor
 from youtube_transcript_api import YouTubeTranscriptApi
 from youtube_transcript_api._errors import NoTranscriptFound, VideoUnavailable, TranscriptsDisabled, IpBlocked
 from tenacity import retry, wait_fixed, retry_if_exception_type, stop_after_attempt
 from app.types.youtube import Snippet, FetchAndMetaResponse
-import requests
+from app.lib.timeout import TRANSCRIPT_FETCH_TIMEOUT
+import asyncio
+import httpx
 import time
 
-class CustomHTTPClient(requests.Session):
-    def __init__(self, timeout=5):
-        super().__init__()
-        self.timeout = timeout
-
-    def get(self, url, **kwargs):
-        kwargs.setdefault("timeout", self.timeout)
-        return super().get(url, **kwargs)
+httpx_client = httpx.Client(timeout=TRANSCRIPT_FETCH_TIMEOUT)
 
 # Global API and thread pool
 executor = ThreadPoolExecutor(max_workers=30)
@@ -26,7 +20,7 @@ executor = ThreadPoolExecutor(max_workers=30)
 )
 def fetch_transcript_with_snippet(video_id: str, snippet: Snippet) -> dict | None:
     try:
-        ytt_api = YouTubeTranscriptApi()        
+        ytt_api = YouTubeTranscriptApi(http_client=httpx_client)
         transcript = ytt_api.fetch(video_id).to_raw_data()
         print(f"✅ {video_id} done")
         return {
