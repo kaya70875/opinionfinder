@@ -22,14 +22,12 @@ async def fetch_channel(channel_name: str, max_results: int) -> ChannelData:
     """
     Get all channel snippets from a YouTube channel using the YouTube Data API v3.
     """
-    #print(f"Fetching video IDs for channel: {channel_name}...")
     channel_id = await get_channel_id(channel_name, API_KEY)
     print('fetched channel id:', channel_id)
     if not channel_id:
         print('channel not found 404 status code.')
         raise HTTPException(status_code=404, detail=f"Channel '{channel_name}' not found.")
     
-    #print(f"Channel ID: {channel_id}")
     
     url = 'https://www.googleapis.com/youtube/v3/channels'
     params = {
