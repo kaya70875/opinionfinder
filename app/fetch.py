@@ -4,6 +4,7 @@ from youtube_transcript_api._errors import NoTranscriptFound, VideoUnavailable, 
 from tenacity import retry, wait_fixed, retry_if_exception_type, stop_after_attempt
 from app.types.youtube import Snippet, FetchAndMetaResponse
 from app.lib.timeout import TRANSCRIPT_FETCH_TIMEOUT
+from app.lib.rd import r
 import asyncio
 import httpx
 import time
@@ -12,16 +13,20 @@ httpx_client = httpx.Client(timeout=TRANSCRIPT_FETCH_TIMEOUT)
 
 # Global API and thread pool
 executor = ThreadPoolExecutor(max_workers=30)
-
 @retry(
     retry=retry_if_exception_type(IpBlocked),
     wait=wait_fixed(1),
     stop=stop_after_attempt(2)
 )
-def fetch_transcript_with_snippet(video_id: str, snippet: Snippet) -> dict | None:
+def fetch_transcript_with_snippet(video_id: str, snippet: Snippet, progress_id: str, max_results: int) -> dict | None:
     try:
         ytt_api = YouTubeTranscriptApi(http_client=httpx_client)
         transcript = ytt_api.fetch(video_id).to_raw_data()
+
+        # Increment progress
+        progress_key = f"progress:{progress_id}"
+        r.incr(progress_key, 1)
+
         print(f"✅ {video_id} done")
         return {
             "video_id": video_id,
@@ -29,16 +34,23 @@ def fetch_transcript_with_snippet(video_id: str, snippet: Snippet) -> dict | Non
             "snippet": snippet.model_dump()
         }
     except (NoTranscriptFound, VideoUnavailable, TranscriptsDisabled):
+        r.incr(f"progress:{progress_id}", 1)
         return None
     except Exception as e:
+        r.incr(f"progress:{progress_id}", 1)
         print(f"⚠️ Unexpected error: {e}")
         return None
 
 
-async def fetch_all_transcripts_with_metadata(video_ids: list[str], snippets: list[Snippet]) -> list[FetchAndMetaResponse]:
+async def fetch_all_transcripts_with_metadata(video_ids: list[str], snippets: list[Snippet], progress_id: str) -> list[FetchAndMetaResponse]:
     start = time.perf_counter()
+
+    # Set progress logic
+    r.set(f"progress:{progress_id}", 0)
+    max_results = len(video_ids)
+
     async def run_in_thread(vid, snip):
-        return await asyncio.to_thread(fetch_transcript_with_snippet, vid, snip)
+        return await asyncio.to_thread(fetch_transcript_with_snippet, vid, snip, progress_id, max_results)
 
     tasks = [run_in_thread(vid, snip) for vid, snip in zip(video_ids, snippets)]
     results = await asyncio.gather(*tasks)

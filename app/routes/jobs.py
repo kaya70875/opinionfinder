@@ -1,5 +1,6 @@
 from fastapi.routing import APIRouter
 from fastapi import HTTPException, Depends
+from fastapi.responses import StreamingResponse
 from app.user.extract_jwt_token import get_user_id
 from arq.connections import RedisSettings
 from app.lib.rd import r
@@ -12,6 +13,7 @@ from arq.jobs import Job
 from arq.jobs import JobStatus
 from arq import create_pool
 import json
+import asyncio
 
 class Jobs(BaseModel):
     job_id: str
@@ -35,54 +37,41 @@ async def get_jobs(user_id: str):
     except Exception as e:
         raise HTTPException(status_code=500, detail=e)
 
-@router.get("/job/{job_id}", response_model=JobResults, response_description="Get job results from job_id")
-async def get_job(job_id: str):
-    try:
-        if not job_id:
-            raise HTTPException(status_code=403, detail='Job id is required.')
-        
-        job = get_job_from_redis(job_id)
-        data = job['results']
+@router.get("/stream/job-progress/{progress_id}")
+async def get_job_progress(progress_id: str):
+    async def event_generator():
+        last_progress = -1
+        while True:
+            await asyncio.sleep(0.5)  # Poll Redis every half second (or pub/sub if you want real-time)
+            progress = int(r.get(f"progress:{progress_id}") or 0)
+            if progress != last_progress:
+                yield f"data: {progress}\n\n"
+                last_progress = progress
+            if progress >= 100:  # Optional: when finished, break
+                break
+    return StreamingResponse(event_generator(), media_type="text/event-stream")
 
-        if not data:
-            raise HTTPException(status_code=404, detail='Not found any results or document for current job.')
-        
-        # Validate the data.
-        results: List[FetchAndMetaResponse] = [FetchAndMetaResponse.model_validate(item) for item in data]
-        return {"data" : results}
-    except Exception as e:
-        print('Error while getting job results from db', e)
-
-@router.get("/job-status/{job_id}")
+@router.get("/job/{job_id}")
 async def get_job_status(job_id: str, user_id: Annotated[str, Depends(get_user_id)]):
     redis = await create_pool(RedisSettings())
     job = Job(job_id=job_id, redis=redis)
 
-    status = await job.status()
-    
-    match status:
-        case JobStatus.in_progress:
-            return {"status": "in_progress"}
-        case JobStatus.queued:
-            return {"status": "queued"}
-        case JobStatus.not_found:
-            return {"status": "not_found"}
-        case JobStatus.complete:
-            # Get necessarry fields from redis
-            queries = r.hgetall(f'query:{job_id}')
+    # Get necessarry fields from redis
+    # queries = r.hgetall(f'query:{job_id}')
 
-            # Get job results
-            job_results = await job.result()
-            results: list[FetchAndMetaResponse] = [FetchAndMetaResponse.model_validate(result) for result in job_results.get("data")]
+    # Get job results
+    job_results = await job.result()
+    results: list[FetchAndMetaResponse] = [FetchAndMetaResponse.model_validate(result) for result in job_results.get("data")]
 
-            # Save job informations to database 
-            save_job_to_redis(user_id, job.job_id, queries['channel_name'], queries['max_results'], results)
+    # Save job informations to database 
+    # save_job_to_redis(user_id, job.job_id, queries['channel_name'], queries['max_results'], results)
 
-            # Set transcript results to redis for getting in download route without fetching the results again.
-            r.set(f'transcript:{job_id}', json.dumps([result.model_dump() for result in results]))
-            r.expire(f'transcript:{job_id}', 60 * 60 * 2)
+    # Set transcript results to redis for getting in download route without fetching the results again.
+    r.set(f'transcript:{job_id}', json.dumps([result.model_dump() for result in results]))
+    r.expire(f'transcript:{job_id}', 60 * 60 * 2)
 
-            return {"status" : "done"}
+    # Track the job under the user key using a Redis set
+    r.sadd(f"user:{user_id}:jobs", job_id)
+    r.expire(f"user:{user_id}:jobs", 60 * 60)
 
-
-    return {"status": "unknown"}
+    return {"data" : results}

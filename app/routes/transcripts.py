@@ -17,6 +17,7 @@ from app.lib.rd import r
 import asyncio
 import logging
 import json
+import uuid
 
 logger = logging.getLogger(__name__)
 
@@ -132,8 +133,12 @@ async def start_background_fetching_job(
 ):
     redis = await create_pool(RedisSettings())
 
+    # Set a progress id for tracking progress real time with server sent events.
+    progress_id = str(uuid.uuid4())
+
     job = await redis.enqueue_job(
         "fetch_transcripts_task",
+        progress_id,
         channel_name,
         max_results,
         user_id,
@@ -150,4 +155,4 @@ async def start_background_fetching_job(
 
     r.expire(f'query:{job_id}', 60 * 60 * 2) # 2 hours of expiry time
 
-    return {"job_id": job_id}
+    return {"job_id": job_id, "progress_id": progress_id}

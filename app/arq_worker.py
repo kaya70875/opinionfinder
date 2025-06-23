@@ -9,7 +9,7 @@ from app.utils.data_processing import clean_transcripts, calculate_estimated_tok
 
 logger = logging.getLogger(__name__)
 
-async def fetch_transcripts_task(ctx:str, channel_name: str, max_results: int, user_id: str):
+async def fetch_transcripts_task(ctx:str, progress_id: str, channel_name: str, max_results: int, user_id: str):
     try:
         user_plan = await get_user_plan(user_id)
         user_plan = user_plan.lower().replace(' ', '_')
@@ -31,7 +31,7 @@ async def fetch_transcripts_task(ctx:str, channel_name: str, max_results: int, u
         video_ids = channel.video_ids
         snippets = channel.metadata
 
-        channel_data = await fetch_all_transcripts_with_metadata(video_ids, snippets)
+        channel_data = await fetch_all_transcripts_with_metadata(video_ids, snippets, progress_id)
         await update_user_limits(user_id, (data.transcript for data in channel_data))
 
         cleaned_data = clean_transcripts(channel_data)
