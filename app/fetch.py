@@ -13,6 +13,14 @@ httpx_client = httpx.Client(timeout=TRANSCRIPT_FETCH_TIMEOUT)
 
 # Global API and thread pool
 executor = ThreadPoolExecutor(max_workers=30)
+
+def apply_progress(progress_key: str, max_results: int) -> int:
+    current = r.incr(progress_key, 1)
+    percentage = int((current / max_results) * 100)
+    r.set(f"{progress_key}:percentage", percentage)
+
+    return percentage
+
 @retry(
     retry=retry_if_exception_type(IpBlocked),
     wait=wait_fixed(1),
@@ -25,22 +33,21 @@ def fetch_transcript_with_snippet(video_id: str, snippet: Snippet, progress_id: 
 
         # Increment progress
         progress_key = f"progress:{progress_id}"
-        r.incr(progress_key, 1)
+        percentage = apply_progress(progress_key, max_results)
 
-        print(f"✅ {video_id} done")
+        print(f"✅ {video_id} done, progress: {percentage}%")
         return {
             "video_id": video_id,
             "transcript": transcript,
             "snippet": snippet.model_dump()
         }
     except (NoTranscriptFound, VideoUnavailable, TranscriptsDisabled):
-        r.incr(f"progress:{progress_id}", 1)
+        apply_progress(progress_key, max_results)
         return None
     except Exception as e:
-        r.incr(f"progress:{progress_id}", 1)
+        apply_progress(progress_key, max_results)
         print(f"⚠️ Unexpected error: {e}")
         return None
-
 
 async def fetch_all_transcripts_with_metadata(video_ids: list[str], snippets: list[Snippet], progress_id: str) -> list[FetchAndMetaResponse]:
     start = time.perf_counter()

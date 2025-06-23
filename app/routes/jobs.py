@@ -41,7 +41,7 @@ async def get_job_progress(progress_id: str):
         last_progress = -1
         while True:
             await asyncio.sleep(0.5)
-            progress = int(r.get(f"progress:{progress_id}") or 0)
+            progress = int(r.get(f"progress:{progress_id}:percentage") or 0)
             if progress != last_progress:
                 yield f"data: {progress}\n\n"
                 last_progress = progress
