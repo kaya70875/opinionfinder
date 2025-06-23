@@ -4,13 +4,11 @@ from fastapi.responses import StreamingResponse
 from app.user.extract_jwt_token import get_user_id
 from arq.connections import RedisSettings
 from app.lib.rd import r
-from app.utils.jobs import save_job_to_redis, get_job_from_redis, get_user_jobs_from_redis
+from app.utils.jobs import get_user_jobs_from_redis
 from pydantic import BaseModel
 from typing import List, Annotated
 from app.types.youtube import FetchAndMetaResponse
-from arq.jobs import JobStatus
 from arq.jobs import Job
-from arq.jobs import JobStatus
 from arq import create_pool
 import json
 import asyncio
