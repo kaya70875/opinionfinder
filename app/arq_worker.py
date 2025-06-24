@@ -34,4 +34,5 @@ async def fetch_transcripts_task(ctx:str, progress_id: str, channel_id: str, max
 
 class WorkerSettings:
     functions = [fetch_transcripts_task]
+    concurrent_jobs = 20
     keep_result = 3000
