@@ -41,11 +41,15 @@ async def get_job_progress(progress_id: str):
         last_progress = -1
         while True:
             await asyncio.sleep(0.5)
-            progress = int(r.get(f"progress:{progress_id}:percentage") or 0)
+            progress_key = r.get(f"progress:{progress_id}:percentage") or 0
+            progress = int(progress_key or 0)
             if progress != last_progress:
                 yield f"data: {progress}\n\n"
                 last_progress = progress
             if progress >= 100:
+                # Remove progress counter and progress percentage after it completes.
+                r.delete(progress_key)
+                r.delete(f"progress:{progress_id}")
                 break
     return StreamingResponse(event_generator(), media_type="text/event-stream")
 
