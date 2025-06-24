@@ -42,10 +42,10 @@ def fetch_transcript_with_snippet(video_id: str, snippet: Snippet, progress_id: 
             "snippet": snippet.model_dump()
         }
     except (NoTranscriptFound, VideoUnavailable, TranscriptsDisabled):
-        apply_progress(progress_key, max_results)
+        apply_progress(f"progress:{progress_id}", max_results)
         return None
     except Exception as e:
-        apply_progress(progress_key, max_results)
+        apply_progress(f"progress:{progress_id}", max_results)
         print(f"⚠️ Unexpected error: {e}")
         return None
 
