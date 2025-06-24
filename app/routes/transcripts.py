@@ -14,12 +14,18 @@ from arq import create_pool
 from arq.connections import RedisSettings
 from app.types.youtube import FetchAndMetaResponse
 from app.lib.rd import r
+from app.utils.helpers import get_channel_id
 import asyncio
 import logging
 import json
 import uuid
+import os
 
 logger = logging.getLogger(__name__)
+API_KEY = os.getenv("YOUTUBE_API_KEY")
+
+if not API_KEY:
+    raise ValueError("API key not found. Please set the YOUTUBE_API_KEY environment variable.")
 
 router = APIRouter()
 
@@ -131,6 +137,24 @@ async def start_background_fetching_job(
     channel_name: str,
     max_results: int = Query(None),
 ):
+    
+    user_plan = await get_user_plan(user_id)
+    user_plan = user_plan.lower().replace(' ', '_')
+    user_limits = USER_LIMITS.get(user_plan, USER_LIMITS['free'])
+    max_allowed = int(user_limits['max_videos'])
+
+    if max_results is None:
+        max_results = max_allowed
+    if max_results > max_allowed:
+        logger.error("Limit exceeds user plan")
+        return {"error": f"Max {max_allowed} videos allowed for {user_plan} plan."}
+
+    await check_request_limits(user_id, user_limits=user_limits)
+
+    channel_id = await get_channel_id(channel_name, API_KEY)
+    if not channel_id:
+        raise HTTPException(status_code=404, detail=f"Channel '{channel_name}' not found.")
+
     redis = await create_pool(RedisSettings())
 
     # Set a progress id for tracking progress real time with server sent events.
@@ -139,7 +163,7 @@ async def start_background_fetching_job(
     job = await redis.enqueue_job(
         "fetch_transcripts_task",
         progress_id,
-        channel_name,
+        channel_id,
         max_results,
         user_id,
     )

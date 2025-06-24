@@ -1,9 +1,8 @@
-import httpx
-from app.utils.helpers import get_channel_id, fetch_with_playlist_id, ChannelData
-import os
-from fastapi import HTTPException
-from app.lib.timeout import TIMEOUT
 import logging
+import httpx
+import os
+from app.utils.helpers import fetch_with_playlist_id, ChannelData
+from app.lib.timeout import TIMEOUT
 from tenacity import retry, retry_if_exception_type, wait_fixed, stop_after_attempt
 logging.basicConfig()
 
@@ -18,17 +17,10 @@ if not API_KEY:
         stop=stop_after_attempt(3),
         reraise=True
 )
-async def fetch_channel(channel_name: str, max_results: int) -> ChannelData:
+async def fetch_channel(channel_id: str, max_results: int) -> ChannelData:
     """
     Get all channel snippets from a YouTube channel using the YouTube Data API v3.
-    """
-    channel_id = await get_channel_id(channel_name, API_KEY)
-    print('fetched channel id:', channel_id)
-    if not channel_id:
-        print('channel not found 404 status code.')
-        raise HTTPException(status_code=404, detail=f"Channel '{channel_name}' not found.")
-    
-    
+    """    
     url = 'https://www.googleapis.com/youtube/v3/channels'
     params = {
         'part': 'contentDetails',
