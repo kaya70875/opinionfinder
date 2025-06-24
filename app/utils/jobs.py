@@ -58,8 +58,7 @@ def save_job_to_redis(user_id: str, job_id: str, channel_name: str, max_results:
     r.expire(f"user:{user_id}:jobs", REDIS_EXPIRY)
 
     # Set transcript results to redis for getting in download route without fetching the results again.
-    r.set(f'transcript:{job_id}', json.dumps([result.model_dump() for result in results]))
-    r.expire(f'transcript:{job_id}', 60 * 60 * 2)
+    r.set(f'transcript:{job_id}', json.dumps([result.model_dump() for result in results]), REDIS_EXPIRY)
 
 def get_job_from_redis(job_id: str) -> dict:
     data = r.hgetall(f"job:{job_id}")
