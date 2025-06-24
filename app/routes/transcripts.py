@@ -77,60 +77,6 @@ async def download(
         logger.error('Error while downloading file', e)
         raise HTTPException(status_code=500, detail=f'error: {e}')
 
-@router.get("/transcripts/{channel_name}")
-async def fetch_transcripts(
-        user_id: Annotated[str, Depends(get_user_id)],
-        channel_name : str = Path(description="Channel name to fetch transcripts from.", min_length=1, max_length=70),
-        max_results: int = Query(default=None, description="Limit the number of transcripts to fetch.")
-        ):
-    """
-    Fetch transcripts for all videos from a channel.
-    """
-    
-    # Set maximum allowed videos to fetch as default.
-    user_plan = await get_user_plan(user_id)
-    user_plan = user_plan.lower().replace(' ', '_')
-    user_limits = USER_LIMITS.get(user_plan, USER_LIMITS['free'])
-    max_allowed = int(user_limits['max_videos'])
-    if max_results is None:
-        max_results = max_allowed
-    if max_results > max_allowed:
-        logger.error(f"Limit exceeds plan allowance ({max_allowed} max for {user_plan} users).")
-        raise HTTPException(status_code=403, detail=f"Limit exceeds plan allowance ({max_allowed} max for {user_plan} users).")
-
-    # Check request limits for the user
-    await check_request_limits(user_id, user_limits=user_limits)
-    
-    channel = await fetch_channel(channel_name, max_results)
-    video_ids = channel.video_ids if channel else []
-    snippets = channel.metadata if channel else []
-    if not video_ids:
-        logger.error("No video IDs found for the specified channel.")
-        raise HTTPException(status_code=404, detail="No video IDs found for the specified channel.")
-
-    # Call the fetch function from fetch.py
-    channel_data = await fetch_all_transcripts_with_metadata(video_ids, snippets)
-    #channel_data = await fetch_all_transcripts_with_metadata(video_ids, snippets)
-    if not channel_data:
-        logger.error("No channel_data found for the current channel")
-        #raise HTTPException(status_code=404, detail="No channel_data found for the current channel")
-
-    #Update user metrics
-    await update_user_limits(user_id, (data.transcript for data in channel_data))
-
-    #Clean transcripts for final writing format.
-    cleaned_data = clean_transcripts(channel_data)
-
-    #Calculate estimated token
-    estimated_token = calculate_estimated_token(cleaned_data)
-    r.set("transcripts", json.dumps([data.model_dump() for data in cleaned_data]))
-
-    return {
-        "data" : cleaned_data,
-        "token": estimated_token
-    }
-    
-
 @router.get("/transcripts/background/{channel_name}")
 async def start_background_fetching_job(
     user_id: Annotated[str, Depends(get_user_id)],
