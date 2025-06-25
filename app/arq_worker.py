@@ -2,7 +2,6 @@
 import logging
 from app.fetch import fetch_all_transcripts_with_metadata
 from app.youtube_v3.v3_requests import fetch_channel
-from app.user.user_limits import USER_LIMITS
 from app.user.limits import update_user_limits
 from app.utils.data_processing import clean_transcripts, calculate_estimated_token
 
@@ -35,4 +34,3 @@ async def fetch_transcripts_task(ctx:str, progress_id: str, channel_id: str, max
 class WorkerSettings:
     functions = [fetch_transcripts_task]
     concurrent_jobs = 20
-    keep_result = 3000
