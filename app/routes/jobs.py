@@ -10,8 +10,10 @@ from typing import List, Annotated
 from app.types.youtube import FetchAndMetaResponse
 from arq.jobs import Job
 from arq import create_pool
-import json
 import asyncio
+import logging
+
+logger = logging.getLogger(__name__)
 
 class Jobs(BaseModel):
     job_id: str
@@ -53,19 +55,42 @@ async def get_job_progress(progress_id: str):
                 break
     return StreamingResponse(event_generator(), media_type="text/event-stream")
 
+
+@router.get("/job/save/{job_id}")
+async def save_job(user_id: Annotated[str, Depends(get_user_id)], job_id: str):
+    try:
+        redis = await create_pool(RedisSettings())
+        job = Job(job_id=job_id, redis=redis)
+        
+        # Get necessarry fields from redis
+        queries = r.hgetall(f'query:{job_id}')
+
+        if not queries:
+            logger.error('Missing queries in save_job.')
+            return False
+
+        # Get job results
+        job_results = await job.result()
+        results: list[FetchAndMetaResponse] = [FetchAndMetaResponse.model_validate(result) for result in job_results.get("data")]
+
+        if not results:
+            logger.error('No results for saving job informations.')
+            return False
+
+        # Save job informations to database 
+        save_job_to_redis(user_id, job.job_id, queries['channel_name'], queries['max_results'], results)
+
+        return True
+    except Exception as e:
+        logger.error(f'Error while saving job informations to redis: ', e)
+
 @router.get("/job/{job_id}")
-async def get_job_status(job_id: str, user_id: Annotated[str, Depends(get_user_id)]):
+async def get_job_status(job_id: str):
     redis = await create_pool(RedisSettings())
     job = Job(job_id=job_id, redis=redis)
 
-    # Get necessarry fields from redis
-    queries = r.hgetall(f'query:{job_id}')
-
     # Get job results
-    job_results = await job.result()
+    job_results = await job.result(timeout=0)
     results: list[FetchAndMetaResponse] = [FetchAndMetaResponse.model_validate(result) for result in job_results.get("data")]
-
-    # Save job informations to database 
-    save_job_to_redis(user_id, job.job_id, queries['channel_name'], queries['max_results'], results)
 
     return {"data" : results}
