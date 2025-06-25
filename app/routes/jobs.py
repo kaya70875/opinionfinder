@@ -90,7 +90,6 @@ async def save_job(user_id: Annotated[str, Depends(get_user_id)], job_id: str):
 @router.get("/job/{job_id}", response_model=JobResults)
 async def get_job_status(job_id: str):
     # Get job results from redis
-    job = get_job_from_redis(job_id)
-    job_results = job.get("results")
+    transcript_data = get_job_from_redis(job_id).get("results")
 
-    return {"data" : job_results}
+    return {"data" : transcript_data}
