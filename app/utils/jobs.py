@@ -48,7 +48,7 @@ def save_job_to_redis(user_id: str, job_id: str, queries: dict, results: List[Fe
         "total_fetched": queries['max_results'],
         "export_type": queries['export_type'],
         "allowed_metadata": queries['allowed_metadata'],
-        'include_timing': queries['include_timing'],
+        "include_timing": queries['include_timing'],
         "results": converted
     })
 
