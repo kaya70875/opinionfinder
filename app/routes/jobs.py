@@ -52,9 +52,9 @@ async def get_job_progress(progress_id: str):
                 yield f"data: {progress}\n\n"
                 last_progress = progress
             if progress >= 100:
+                print('Deleting progress keys')
                 # Remove progress counter and progress percentage after it completes.
-                r.delete(progress_key)
-                r.delete(f"progress:{progress_id}")
+                r.delete(f"progress:{progress_id}:percentage", f"progress:{progress_id}")
                 break
     return StreamingResponse(event_generator(), media_type="text/event-stream")
 
