@@ -59,9 +59,6 @@ def save_job_to_redis(user_id: str, job_id: str, queries: dict, results: List[Fe
     r.sadd(f"user:{user_id}:jobs", job_id)
     r.expire(f"user:{user_id}:jobs", REDIS_EXPIRY)
 
-    # Set transcript results to redis for getting in download route without fetching the results again.
-    r.set(f'transcript:{job_id}', json.dumps([result.model_dump() for result in results]), REDIS_EXPIRY)
-
 def get_job_from_redis(job_id: str) -> dict:
     data = r.hgetall(f"job:{job_id}")
     if not data:
