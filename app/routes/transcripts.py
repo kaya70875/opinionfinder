@@ -1,14 +1,12 @@
 from fastapi import APIRouter, Depends
-from fastapi import Query, Path, HTTPException
+from fastapi import Query, HTTPException
 from fastapi.responses import StreamingResponse
 from app.utils.writes import write_as_csv, write_as_text, write_as_json
-from app.fetch import fetch_all_transcripts_with_metadata
-from app.youtube_v3.v3_requests import fetch_channel
-from app.user.limits import check_request_limits, update_user_limits
+from app.user.limits import check_request_limits
 from app.user.utils import get_user_plan
 from app.user.user_limits import USER_LIMITS
-from app.utils.data_processing import clean_transcripts, calculate_estimated_token
 from app.user.extract_jwt_token import get_user_id
+from app.utils.jobs import get_job_from_redis
 from typing import Annotated
 from arq import create_pool
 from arq.connections import RedisSettings
@@ -17,7 +15,6 @@ from app.lib.rd import r
 from app.utils.helpers import get_channel_id
 import asyncio
 import logging
-import json
 import uuid
 import os
 
@@ -33,15 +30,16 @@ router = APIRouter()
 async def download(job_id: str):
     try:
         # Get cached queris for job
-        queries = r.hgetall(f'query:{job_id}')
-        export_type = queries.get("export_type")
-        include_timing = queries.get("include_timing")
+        job = get_job_from_redis(job_id)
+
+        export_type = job.get("export_type")
+        include_timing = job.get("include_timing")
 
         # Get cached transcripts from redis
-        cached_cleaned_data = json.loads(r.get(f'transcript:{job_id}'))
+        cached_cleaned_data = job.get("results")
         
         # Convert metadata into a list.
-        allowed_metadata = queries.get("allowed_metadata")
+        allowed_metadata = job.get("allowed_metadata")
         metadata = allowed_metadata.split(",")
 
         cleaned_data: list[FetchAndMetaResponse] = [FetchAndMetaResponse.model_validate(item) for item in cached_cleaned_data]
