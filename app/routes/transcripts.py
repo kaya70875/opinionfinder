@@ -30,20 +30,18 @@ if not API_KEY:
 router = APIRouter()
 
 @router.get("/transcripts/download/{job_id}")
-async def download(
-        job_id: str,
-        export_type: str = Query(default="json", description="Export type for transcripts. Options: 'json', 'txt', 'csv'"),
-        allowed_metadata: str = Query(default='title', description="Allowed metadata values. Options : 'title | description | publishedAt'"),
-        include_timing: bool = Query(default=True, description="Whether the include start and duration parameters or not.")
-):
+async def download(job_id: str):
     try:
-        if export_type not in ["json", "txt", "csv"]:
-            raise HTTPException(status_code=400, detail="Invalid export type. Options: 'json', 'txt', 'csv'")
+        # Get cached queris for job
+        queries = r.hgetall(f'query:{job_id}')
+        export_type = queries.get("export_type")
+        include_timing = queries.get("include_timing")
 
         # Get cached transcripts from redis
         cached_cleaned_data = json.loads(r.get(f'transcript:{job_id}'))
         
         # Convert metadata into a list.
+        allowed_metadata = queries.get("allowed_metadata")
         metadata = allowed_metadata.split(",")
 
         cleaned_data: list[FetchAndMetaResponse] = [FetchAndMetaResponse.model_validate(item) for item in cached_cleaned_data]
@@ -82,7 +80,13 @@ async def start_background_fetching_job(
     user_id: Annotated[str, Depends(get_user_id)],
     channel_name: str,
     max_results: int = Query(None),
+    export_type: str = Query(default="json", description="Export type for transcripts. Options: 'json', 'txt', 'csv'"),
+    allowed_metadata: str = Query(default='title', description="Allowed metadata values. Options : 'title | description | publishedAt'"),
+    include_timing: bool = Query(default=True, description="Whether the include start and duration parameters or not.")
 ):
+    
+    if export_type not in ["json", "txt", "csv"]:
+        raise HTTPException(status_code=400, detail="Invalid export type. Options: 'json', 'txt', 'csv'")
     
     user_plan = await get_user_plan(user_id)
     user_plan = user_plan.lower().replace(' ', '_')
@@ -120,7 +124,10 @@ async def start_background_fetching_job(
     # Set query for jobs route
     r.hset(f'query:{job_id}', mapping={
         "channel_name": channel_name,
-        "max_results": max_results
+        "max_results": max_results,
+        "export_type": export_type,
+        "allowed_metadata": allowed_metadata,
+        "include_timing": str(include_timing)
     })
 
     r.expire(f'query:{job_id}', 60 * 60 * 2) # 2 hours of expiry time

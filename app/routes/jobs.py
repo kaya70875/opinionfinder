@@ -19,6 +19,9 @@ class Jobs(BaseModel):
     job_id: str
     channel_name: str
     total_fetched: int
+    export_type: str
+    allowed_metadata: str
+    include_timing: str
     results: List[FetchAndMetaResponse]
 
 class JobResults(BaseModel):
@@ -78,7 +81,7 @@ async def save_job(user_id: Annotated[str, Depends(get_user_id)], job_id: str):
             return False
 
         # Save job informations to database 
-        save_job_to_redis(user_id, job.job_id, queries['channel_name'], queries['max_results'], results)
+        save_job_to_redis(user_id, job.job_id, queries, results)
 
         return True
     except Exception as e:

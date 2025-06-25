@@ -32,7 +32,7 @@ async def save_job(user_id: str, channel_name: str, job_id: str, max_results: in
     except Exception as e:
         print('Error while inserting job information to db : ', e)
 
-def save_job_to_redis(user_id: str, job_id: str, channel_name: str, max_results: int, results: List[FetchAndMetaResponse]):
+def save_job_to_redis(user_id: str, job_id: str, queries: dict, results: List[FetchAndMetaResponse]):
     """
     Saves job informations to redis and expires after 24h.
     """
@@ -42,11 +42,13 @@ def save_job_to_redis(user_id: str, job_id: str, channel_name: str, max_results:
 
     converted = json.dumps([result.model_dump() for result in results])
 
-    # Save the actual job (compressed)
     r.hset(f"job:{job_id}", mapping={
         "job_id": job_id,
-        "channel_name": channel_name,
-        "total_fetched": max_results,
+        "channel_name": queries['channel_name'],
+        "total_fetched": queries['max_results'],
+        "export_type": queries['export_type'],
+        "allowed_metadata": queries['allowed_metadata'],
+        'include_timing': queries['include_timing'],
         "results": converted
     })
 
@@ -69,6 +71,9 @@ def get_job_from_redis(job_id: str) -> dict:
         "job_id": data["job_id"],
         "channel_name": data["channel_name"],
         "total_fetched": data["total_fetched"],
+        "export_type": data["export_type"],
+        "allowed_metadata": data["allowed_metadata"],
+        "include_timing": data["include_timing"],
         "results": json.loads(data["results"])
     }
 
