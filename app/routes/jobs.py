@@ -4,7 +4,7 @@ from fastapi.responses import StreamingResponse
 from app.user.extract_jwt_token import get_user_id
 from arq.connections import RedisSettings
 from app.lib.rd import r
-from app.utils.jobs import get_user_jobs_from_redis, save_job_to_redis
+from app.utils.jobs import get_user_jobs_from_redis, save_job_to_redis, get_job_from_redis
 from pydantic import BaseModel
 from typing import List, Annotated
 from app.types.youtube import FetchAndMetaResponse
@@ -84,13 +84,10 @@ async def save_job(user_id: Annotated[str, Depends(get_user_id)], job_id: str):
     except Exception as e:
         logger.error(f'Error while saving job informations to redis: ', e)
 
-@router.get("/job/{job_id}")
+@router.get("/job/{job_id}", response_model=JobResults)
 async def get_job_status(job_id: str):
-    redis = await create_pool(RedisSettings())
-    job = Job(job_id=job_id, redis=redis)
+    # Get job results from redis
+    job = get_job_from_redis(job_id)
+    job_results = job.get("results")
 
-    # Get job results
-    job_results = await job.result(timeout=0)
-    results: list[FetchAndMetaResponse] = [FetchAndMetaResponse.model_validate(result) for result in job_results.get("data")]
-
-    return {"data" : results}
+    return {"data" : job_results}
