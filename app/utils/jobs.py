@@ -62,3 +62,25 @@ def get_user_jobs_from_redis(user_id:str) -> list:
             jobs.append(job)
     
     return jobs
+
+def remove_progress_info(progress_id: str, user_id: str) -> None:
+    """
+    Removes progress, percentage and progress info keys.
+    Also removes queued progresses for current user.
+    """
+    # Remove progress counter and progress percentage after it completes.
+    r.delete(f"progress:{progress_id}:percentage", f"progress:{progress_id}")
+
+    # Also remove progress info
+    key = f"user:{user_id}:in-queue"
+    progress_members = r.smembers(key)
+    matched_member = None
+
+    # Find relevant info based user_id and remove it
+    for member in progress_members:
+        progress_info = json.loads(member)
+        if progress_info.get("progress_id") == progress_id:
+            matched_member = member
+    
+    if matched_member:
+        r.srem(key, matched_member)

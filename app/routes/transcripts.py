@@ -17,6 +17,7 @@ import asyncio
 import logging
 import uuid
 import os
+import json
 
 logger = logging.getLogger(__name__)
 API_KEY = os.getenv("YOUTUBE_API_KEY")
@@ -127,6 +128,16 @@ async def start_background_fetching_job(
         "allowed_metadata": allowed_metadata,
         "include_timing": str(include_timing)
     })
+
+    # Set queue info for JobStatus component
+    queue_info = {
+        "job_id": job_id,
+        "progress_id": progress_id,
+        "channel_name": channel_name
+    }
+
+    key = f"user:{user_id}:in-queue"
+    r.sadd(key, json.dumps(queue_info))
 
     r.expire(f'query:{job_id}', 60 * 60 * 2) # 2 hours of expiry time
 

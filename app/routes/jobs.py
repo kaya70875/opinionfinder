@@ -4,7 +4,7 @@ from fastapi.responses import StreamingResponse
 from app.user.extract_jwt_token import get_user_id
 from arq.connections import RedisSettings
 from app.lib.rd import r
-from app.utils.jobs import get_user_jobs_from_redis, save_job_to_redis, get_job_from_redis
+from app.utils.jobs import *
 from pydantic import BaseModel
 from typing import List, Annotated
 from app.types.youtube import FetchAndMetaResponse
@@ -12,6 +12,7 @@ from arq.jobs import Job
 from arq import create_pool
 import asyncio
 import logging
+import json
 
 logger = logging.getLogger(__name__)
 
@@ -40,8 +41,25 @@ async def get_jobs(user_id: str):
     except Exception as e:
         raise HTTPException(status_code=500, detail=e)
 
-@router.get("/stream/job-progress/{progress_id}")
-async def get_job_progress(progress_id: str):
+@router.get("/jobs-in-queue")
+async def get_queued_jobs(user_id: Annotated[str, Depends(get_user_id)]):
+    try:
+        all_members = r.smembers(f"user:{user_id}:in-queue")
+        queue_list = []
+
+        # Return empty array no members found. 
+        if not all_members:
+            return []
+        
+        for member in all_members:
+            data = json.loads(member)
+            queue_list.append(data)
+        return queue_list
+    except Exception as e:
+        raise HTTPException(status_code=500, detail=e)
+
+@router.get("/stream/job-progress/{progress_id}/{user_id}")
+async def get_job_progress(user_id: str, progress_id: str):
     async def event_generator():
         last_progress = -1
         while True:
@@ -52,9 +70,8 @@ async def get_job_progress(progress_id: str):
                 yield f"data: {progress}\n\n"
                 last_progress = progress
             if progress >= 100:
-                print('Deleting progress keys')
-                # Remove progress counter and progress percentage after it completes.
-                r.delete(f"progress:{progress_id}:percentage", f"progress:{progress_id}")
+                # Remove all progress keys and informations after it completes
+                remove_progress_info(progress_id, user_id)
                 break
     return StreamingResponse(event_generator(), media_type="text/event-stream")
 
