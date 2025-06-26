@@ -30,12 +30,9 @@ class JobResults(BaseModel):
 
 router = APIRouter()
 
-@router.get("/jobs/{user_id}", response_model=List[Jobs], response_description="Get all jobs for a specific user.")
-async def get_jobs(user_id: str):
+@router.get("/jobs", response_model=List[Jobs], response_description="Get all jobs for a specific user.")
+async def get_jobs(user_id: Annotated[str, Depends(get_user_id)]):
     try:
-        if not user_id:
-            raise HTTPException(status_code=403, detail='User id is required.')
-
         results = get_user_jobs_from_redis(user_id)
         return results
     except Exception as e:
