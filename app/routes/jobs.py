@@ -4,6 +4,7 @@ from fastapi.responses import StreamingResponse
 from app.user.extract_jwt_token import get_user_id
 from arq.connections import RedisSettings
 from app.lib.rd import r
+from app.lib.redis_settings import REDIS_CONF
 from app.utils.jobs import *
 from pydantic import BaseModel
 from typing import List, Annotated
@@ -76,7 +77,7 @@ async def get_job_progress(user_id: str, progress_id: str):
 @router.get("/job/save/{job_id}")
 async def save_job(user_id: Annotated[str, Depends(get_user_id)], job_id: str):
     try:
-        redis = await create_pool(RedisSettings())
+        redis = await create_pool(REDIS_CONF)
         job = Job(job_id=job_id, redis=redis)
         
         # Get necessarry fields from redis

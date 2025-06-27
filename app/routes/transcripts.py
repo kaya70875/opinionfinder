@@ -7,9 +7,9 @@ from app.user.utils import get_user_plan
 from app.user.user_limits import USER_LIMITS
 from app.user.extract_jwt_token import get_user_id
 from app.utils.jobs import get_job_from_redis
+from app.lib.redis_settings import REDIS_CONF
 from typing import Annotated
 from arq import create_pool
-from arq.connections import RedisSettings
 from app.types.youtube import FetchAndMetaResponse
 from app.lib.rd import r
 from app.utils.helpers import get_channel_id
@@ -104,7 +104,7 @@ async def start_background_fetching_job(
     if not channel_id:
         raise HTTPException(status_code=404, detail=f"Channel '{channel_name}' not found.")
 
-    redis = await create_pool(RedisSettings())
+    redis = await create_pool(REDIS_CONF)
 
     # Set a progress id for tracking progress real time with server sent events.
     progress_id = str(uuid.uuid4())
