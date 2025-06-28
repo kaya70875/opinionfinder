@@ -5,11 +5,28 @@ from tenacity import retry, wait_fixed, retry_if_exception_type, stop_after_atte
 from app.types.youtube import Snippet, FetchAndMetaResponse
 from app.lib.timeout import TRANSCRIPT_FETCH_TIMEOUT
 from app.lib.rd import r
+from fake_useragent import UserAgent
 import asyncio
 import httpx
 import time
 
-httpx_client = httpx.Client(timeout=TRANSCRIPT_FETCH_TIMEOUT)
+def get_realistic_headers() -> dict:
+    ua = UserAgent(platforms='desktop', os='Windows')
+    user_agent = ua.random
+    return {
+        "User-Agent": user_agent,
+        "Accept": "text/html,application/xhtml+xml,application/xml;q=0.9,image/webp,image/apng,*/*;q=0.8",
+        "Accept-Language": "en-US,en;q=0.9",
+        "Referer": f"https://www.youtube.com/",
+        "Connection": "keep-alive",
+        "DNT": "1",
+        "Upgrade-Insecure-Requests": "1",
+        # optionally:
+        # "Accept-Encoding": "gzip, deflate, br",
+    }
+
+headers = get_realistic_headers()
+httpx_client = httpx.Client(timeout=TRANSCRIPT_FETCH_TIMEOUT, headers=headers)
 
 # Global API and thread pool
 executor = ThreadPoolExecutor(max_workers=30)
