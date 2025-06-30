@@ -3,6 +3,7 @@ from app.types.youtube import FetchAndMetaResponse
 from typing import List
 from app.lib.rd import r
 from fastapi import HTTPException
+from datetime import datetime
 import json
 
 collection = db.get_collection("jobs")
@@ -26,6 +27,7 @@ def save_job_to_redis(user_id: str, job_id: str, queries: dict, results: List[Fe
         "export_type": queries['export_type'],
         "allowed_metadata": queries['allowed_metadata'],
         "include_timing": queries['include_timing'],
+        "created_at": datetime.now().strftime("%Y-%m-%d : %I:%M%p"),
         "results": converted
     })
 
@@ -48,6 +50,7 @@ def get_job_from_redis(job_id: str) -> dict:
         "export_type": data["export_type"],
         "allowed_metadata": data["allowed_metadata"],
         "include_timing": data["include_timing"],
+        "created_at": data["created_at"],
         "results": json.loads(data["results"])
     }
 

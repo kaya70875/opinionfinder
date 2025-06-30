@@ -24,6 +24,7 @@ class Jobs(BaseModel):
     export_type: str
     allowed_metadata: str
     include_timing: str
+    created_at: str
     results: List[FetchAndMetaResponse]
 
 class JobResults(BaseModel):
