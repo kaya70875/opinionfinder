@@ -24,8 +24,8 @@ def apply_progress(progress_key: str, max_results: int) -> int:
 
     return percentage
 
-def apply_status(progress_key: str, status: Literal['done', 'failed']) -> None:
-    r.incr(f"status:{progress_key}:{status}", 1)
+def apply_status(progress_id: str, status: Literal['done', 'failed']) -> None:
+    r.incr(f"status:{progress_id}:{status}", 1)
 
 @retry(
     retry=retry_if_exception_type(IpBlocked),
@@ -51,11 +51,11 @@ def fetch_transcript_with_snippet(video_id: str, snippet: Snippet, progress_id: 
         }
     except (NoTranscriptFound, VideoUnavailable, TranscriptsDisabled):
         apply_progress(f"progress:{progress_id}", max_results)
-        apply_status(progress_key, 'failed')
+        apply_status(progress_id, 'failed')
         return None
     except Exception as e:
         apply_progress(f"progress:{progress_id}", max_results)
-        apply_status(progress_key, 'failed')
+        apply_status(progress_id, 'failed')
         print(f"⚠️ Unexpected error: {e}")
         return None
 
