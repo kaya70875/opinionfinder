@@ -64,9 +64,13 @@ async def get_job_progress(user_id: str, progress_id: str):
         while True:
             await asyncio.sleep(0.5)
             progress_key = r.get(f"progress:{progress_id}:percentage") or 0
+            completed = r.get(f"status:{progress_id}:done")
+            failed = r.get(f"status:{progress_id}:failed")
             progress = int(progress_key or 0)
             if progress != last_progress:
-                yield f"data: {progress}\n\n"
+                yield f"event: progress\ndata: {progress}\n\n"
+                yield f"event: completed\ndata: {int(completed or 0)}\n\n"
+                yield f"event: failed\ndata: {int(failed or 0)}\n\n"
                 last_progress = progress
             if progress >= 100:
                 # Remove all progress keys and informations after it completes

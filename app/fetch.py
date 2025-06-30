@@ -6,6 +6,7 @@ from app.types.youtube import Snippet, FetchAndMetaResponse
 from app.lib.timeout import TRANSCRIPT_FETCH_TIMEOUT
 from app.lib.rd import r
 from app.lib.defenses.headers import get_realistic_headers
+from typing import Literal
 import asyncio
 import httpx
 import time
@@ -23,6 +24,9 @@ def apply_progress(progress_key: str, max_results: int) -> int:
 
     return percentage
 
+def apply_status(progress_key: str, status: Literal['done', 'failed']) -> None:
+    r.incr(f"status:{progress_key}:{status}", 1)
+
 @retry(
     retry=retry_if_exception_type(IpBlocked),
     wait=wait_fixed(1),
@@ -35,7 +39,9 @@ def fetch_transcript_with_snippet(video_id: str, snippet: Snippet, progress_id: 
 
         # Increment progress
         progress_key = f"progress:{progress_id}"
+
         percentage = apply_progress(progress_key, max_results)
+        apply_status(progress_id, 'done')
 
         print(f"✅ {video_id} done, progress: {percentage}%")
         return {
@@ -45,9 +51,11 @@ def fetch_transcript_with_snippet(video_id: str, snippet: Snippet, progress_id: 
         }
     except (NoTranscriptFound, VideoUnavailable, TranscriptsDisabled):
         apply_progress(f"progress:{progress_id}", max_results)
+        apply_status(progress_key, 'failed')
         return None
     except Exception as e:
         apply_progress(f"progress:{progress_id}", max_results)
+        apply_status(progress_key, 'failed')
         print(f"⚠️ Unexpected error: {e}")
         return None
 
