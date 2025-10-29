@@ -7,7 +7,7 @@ ENVIRONMENT = os.getenv("ENVIRONMENT", 'localhost')
 
 REDIS_HOST = os.getenv('REDIS_HOST')
 REDIS_PASSWORD = os.getenv('REDIS_PASSWORD')
-REDIS_PORT = 15382
+REDIS_PORT = 10918
 
 REDIS_CONF = RedisSettings(
     host=REDIS_HOST if ENVIRONMENT == 'prod' else 'localhost',
