@@ -5,7 +5,6 @@ from app.youtube_v3.v3_requests import fetch_channel
 from app.user.limits import update_user_limits
 from app.utils.data_processing import clean_transcripts, calculate_estimated_token
 from app.lib.redis_settings import REDIS_CONF
-import os
 
 logger = logging.getLogger(__name__)
 
