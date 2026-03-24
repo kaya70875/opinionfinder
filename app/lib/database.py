@@ -23,6 +23,7 @@ try:
     db = client[mongo_db]  # Access the database
 
     print("Database connection successful")
+    logger.info('Connected to DB')
 except errors.ConnectionFailure as exc:
     logger.error(f'Database connection failed. {exc}')
 
